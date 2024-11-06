@@ -33,7 +33,7 @@ from flask_cors import CORS
 import random
 import time
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='', static_folder='static')
 CORS(app)
 
 # Variables globales pour gérer l'état du jeu
@@ -42,6 +42,10 @@ ready_players = []
 roles = {}
 dead_players = []
 game_started = False
+
+@app.route('/')
+def home():
+    return app.send_static_file('index.html')
 
 @app.route('/join', methods=['POST'])
 def join():
@@ -67,6 +71,10 @@ def start_game():
         # Assigner les rôles
         roles = assign_roles(players)
     return jsonify(roles)
+
+@app.route('/get_players', methods=['GET'])
+def get_players():
+    return jsonify({'players': players})
 
 @app.route('/set_dead', methods=['POST'])
 def set_dead():
@@ -129,4 +137,4 @@ def check_winner():
         return "Le jeu continue..."
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

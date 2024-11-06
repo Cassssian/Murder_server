@@ -39,6 +39,12 @@
         let role;
         let deadPlayers = [];
 
+        function startUpdateInterval() {
+            updatePlayerList(); // Mise à jour immédiate
+            setInterval(updatePlayerList, 100);
+        }
+
+
         $('#joinButton').click(function() {
             playerName = $('#playerName').val();
             $.ajax({
@@ -50,7 +56,7 @@
                     players = data.players;
                     $('#welcome').hide();
                     $('#waiting').show();
-                    updatePlayerList();
+                    startUpdateInterval(); // Mise à jour immédiate après avoir rejoint
                 }
             });
         });
@@ -71,9 +77,16 @@
         });
 
         function updatePlayerList() {
-            $('#playerList').empty();
-            players.forEach(player => {
-                $('#playerList').append(`<li>${player}</li>`);
+            $.ajax({
+                url: '/get_players',
+                method: 'GET',
+                success: function(data) {
+                    players = data.players;
+                    $('#playerList').empty();
+                    players.forEach(player => {
+                        $('#playerList').append(`<li>${player}</li>`);
+                    });
+                }
             });
         }
 
