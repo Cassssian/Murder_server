@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application de Rôle</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Application de Rôle</h1>
+
+    <input id="username" placeholder="Votre nom">
+    <button id="join-btn">Rejoindre</button>
+    <button id="ready-btn" disabled>Prêt</button>
+
+    <h2>Participants :</h2>
+    <ul id="participants"></ul>
+
+    <h3 id="role-display" style="display:none;">Votre rôle : <span id="role"></span></h3>
+    <button id="start-game-btn" style="display:none;">Démarrer le jeu</button>
+
+    <h3 id="timer-display" style="display:none;">Temps restant : <span id="time">10:00</span></h3>
+
+    <script>
+        const socket = io();
+
+        document.getElementById('join-btn').onclick = () => {
+            const username = document.getElementById('username').value;
+            if (username) {
+                socket.emit('join', { username });
+                document.getElementById('join-btn').disabled = true;
+                document.getElementById('ready-btn').disabled = false;
+            }
+        };
+
+        document.getElementById('ready-btn').onclick = () => {
+            const username = document.getElementById('username').value;
+            if (username) {
+                socket.emit('ready', { username });
+                document.getElementById('ready-btn').disabled = true;
+            }
+        };
+
+        socket.on('update_participants', (participants) => {
+            const participantList = document.getElementById('participants');
+            participantList.innerHTML = '';
+            for (const [name, ready] of Object.entries(participants)) {
+                const item = document.createElement('li');
+                item.textContent = `${name} - ${ready ? "Prêt" : "En attente"}`;
+                participantList.appendChild(item);
+            }
+        });
+
+        socket.on('assign_role', (data) => {
+            document.getElementById('role-display').style.display = 'block';
+            document.getElementById('role').textContent = data.role;
+            document.getElementById('start-game-btn').style.display = 'block';
+        });
+
+        document.getElementById('start-game-btn').onclick = () => {
+            socket.emit('start_game');
+            document.getElementById('start-game-btn').disabled = true;
+        };
+
+        socket.on('start_timer', () => {
+            let timeLeft = 600;
+            document.getElementById('timer-display').style.display = 'block';
+
+            const timer = setInterval(() => {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                document.getElementById('time').textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    document.getElementById('time').textContent = "Temps écoulé!";
+                }
+                timeLeft--;
+            }, 1000);
+        });
+
+        socket.on('timer_ended', () => {
+            document.getElementById('time').textContent = "Temps écoulé!";
+        });
+    </script>
+</body>
+</html>
