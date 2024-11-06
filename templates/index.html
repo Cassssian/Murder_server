@@ -1,86 +1,185 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Application de Rôle</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <title>Murder Mystery</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-    <h1>Application de Rôle</h1>
-
-    <input id="username" placeholder="Votre nom">
-    <button id="join-btn">Rejoindre</button>
-    <button id="ready-btn" disabled>Prêt</button>
-
-    <h2>Participants :</h2>
-    <ul id="participants"></ul>
-
-    <h3 id="role-display" style="display:none;">Votre rôle : <span id="role"></span></h3>
-    <button id="start-game-btn" style="display:none;">Démarrer le jeu</button>
-
-    <h3 id="timer-display" style="display:none;">Temps restant : <span id="time">10:00</span></h3>
-
+    <div class="container">
+        <h1>Murder Mystery</h1>
+        <div id="welcome">
+            <input type="text" id="playerName" placeholder="Entrez votre pseudo">
+            <button id="joinButton">Rejoindre</button>
+        </div>
+        <div id="waiting" style="display: none;">
+            <h2>Joueurs en attente</h2>
+            <ul id="playerList"></ul>
+            <button id="readyButton">Prêt</button>
+        </div>
+        <div id="countdown" style="display: none;">
+            <h2>Démarrage du jeu dans <span id="timer">10</span> secondes</h2>
+        </div>
+        <div id="roleDisplay" style="display: none;">
+            <h2>Votre rôle : <span id="role"></span></h2>
+            <button id="deadButton">Se mettre mort</button>
+            <button id="scanButton">Scanner un mort</button>
+            <h3>Joueurs morts :</h3>
+            <ul id="deadList"></ul>
+        </div>
+        <div id="gameStatus" style="display: none;">
+            <h2>Temps restant : <span id="remainingTime"></span> secondes</h2>
+        </div>
+    </div>
     <script>
-        const socket = io();
+        let playerName;
+        let players = [];
+        let readyPlayers = [];
+        let role;
+        let deadPlayers = [];
 
-        document.getElementById('join-btn').onclick = () => {
-            const username = document.getElementById('username').value;
-            if (username) {
-                socket.emit('join', { username });
-                document.getElementById('join-btn').disabled = true;
-                document.getElementById('ready-btn').disabled = false;
-            }
-        };
-
-        document.getElementById('ready-btn').onclick = () => {
-            const username = document.getElementById('username').value;
-            if (username) {
-                socket.emit('ready', { username });
-                document.getElementById('ready-btn').disabled = true;
-            }
-        };
-
-        socket.on('update_participants', (participants) => {
-            const participantList = document.getElementById('participants');
-            participantList.innerHTML = '';
-            for (const [name, ready] of Object.entries(participants)) {
-                const item = document.createElement('li');
-                item.textContent = `${name} - ${ready ? "Prêt" : "En attente"}`;
-                participantList.appendChild(item);
-            }
-        });
-
-        socket.on('assign_role', (data) => {
-            document.getElementById('role-display').style.display = 'block';
-            document.getElementById('role').textContent = data.role;
-            document.getElementById('start-game-btn').style.display = 'block';
-        });
-
-        document.getElementById('start-game-btn').onclick = () => {
-            socket.emit('start_game');
-            document.getElementById('start-game-btn').disabled = true;
-        };
-
-        socket.on('start_timer', () => {
-            let timeLeft = 600;
-            document.getElementById('timer-display').style.display = 'block';
-
-            const timer = setInterval(() => {
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                document.getElementById('time').textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                if (timeLeft <= 0) {
-                    clearInterval(timer);
-                    document.getElementById('time').textContent = "Temps écoulé!";
+        $('#joinButton').click(function() {
+            playerName = $('#playerName').val();
+            $.ajax({
+                url: '/join',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ name: playerName }),
+                success: function(data) {
+                    players = data.players;
+                    $('#welcome').hide();
+                    $('#waiting').show();
+                    updatePlayerList();
                 }
-                timeLeft--;
-            }, 1000);
+            });
         });
 
-        socket.on('timer_ended', () => {
-            document.getElementById('time').textContent = "Temps écoulé!";
+        $('#readyButton').click(function() {
+            $.ajax({
+                url: '/ready',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ name: playerName }),
+                success: function(data) {
+                    readyPlayers = data.ready_players;
+                    if (readyPlayers.length === players.length) {
+                        startCountdown();
+                    }
+                }
+            });
         });
+
+        function updatePlayerList() {
+            $('#playerList').empty();
+            players.forEach(player => {
+                $('#playerList').append(`<li>${player}</li>`);
+            });
+        }
+
+        function startCountdown() {
+            $('#waiting').hide();
+            $('#countdown').show();
+            let timeLeft = 10;
+            const timer = setInterval(function() {
+                $('#timer').text(timeLeft);
+                timeLeft--;
+                if (timeLeft < 0) {
+                    clearInterval(timer);
+                    startGame();
+                }
+            }, 1000);
+        }
+
+        function startGame() {
+            $.ajax({
+                url: '/start_game',
+                method: 'POST',
+                success: function(data) {
+                    role = data[playerName];
+                    $('#countdown').hide();
+                    $('#roleDisplay').show();
+                    $('#role').text(role);
+                    startGameTimer();
+                }
+            });
+        }
+
+        function startGameTimer() {
+            $('#gameStatus').show();
+            const timeLimit = 600; // 10 minutes
+            let elapsedTime = 0;
+            const timer = setInterval(function() {
+                elapsedTime++;
+                const remainingTime = timeLimit - elapsedTime;
+                $('#remainingTime').text(remainingTime);
+                if (remainingTime <= 0) {
+                    clearInterval(timer);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        $('#deadButton').click(function() {
+            $.ajax({
+                url: '/set_dead',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ name: playerName }),
+                success: function(data) {
+                    deadPlayers.push(playerName);
+                    $('#deadList').append(`<li>${playerName}</li>`);
+                    $('#roleDisplay').hide();
+                }
+            });
+        });
+
+        function endGame() {
+            $.ajax({
+                url: '/end_game',
+                method: 'POST',
+                success: function(data) {
+                    alert(data.message);
+                }
+            });
+        }
     </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            margin: auto;
+        }
+        input {
+            padding: 10px;
+            margin: 10px 0;
+            width: 80%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        h1, h2 {
+            color: #333;
+        }
+    </style>
 </body>
 </html>
