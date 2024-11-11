@@ -5,6 +5,108 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Murder Mystery</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <iframe id="backgroundMusic" width="0" height="0" src="https://www.youtube.com/embed/videoseries?list=PLqi51aibKx1mwW9oZm5dDyuFy1gptnkJp&autoplay=1&loop=1" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        input, button {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 5px 0;
+        }
+        #deathCode {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+        }
+        #codeInput {
+            font-size: 20px;
+            letter-spacing: 2px;
+            text-align: center;
+            width: 200px;
+            margin: 10px auto;
+            display: block;
+        }
+        .code-entry {
+            margin: 20px 0;
+        }
+
+        #chatMessages {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .sent-message {
+            text-align: right;
+            color: green;
+            margin: 5px 0;
+        }
+
+        .received-message {
+            text-align: left;
+            color: blue;
+            margin: 5px 0;
+        }
+
+        #coupleChat {
+            width: 100%;
+            padding: 5px;
+            margin-top: 10px;
+        }
+        #torchButton {
+            transition: all 0.3s ease;
+        }
+
+        #torchButton.torch-active {
+            background-color: #ffff00;
+            color: black;
+            box-shadow: 0 0 10px rgba(255,255,0,0.7);
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -12,6 +114,10 @@
         <div id="welcome">
             <input type="text" id="playerName" placeholder="Entrez votre pseudo">
             <button id="joinButton">Rejoindre</button>
+        </div>
+        <div id="gameInProgress" style="display: none;">
+            <h2>Une partie est déjà en cours</h2>
+            <p>Veuillez attendre qu'elle se termine pour rejoindre.</p>
         </div>
         <div id="waiting" style="display: none;">
             <h2>Joueurs en attente</h2>
@@ -24,39 +130,363 @@
         <div id="roleDisplay" style="display: none;">
             <h2>Votre rôle : <span id="role"></span></h2>
             <button id="deadButton">Se mettre mort</button>
-            <button id="scanButton">Scanner un mort</button>
+            <button id="scanButton">Vérifier un mort</button>
+            <div id="deathCodeDisplay" style="display: none;">
+                <p>Votre code de mort :</p>
+                <div id="deathCode"></div>
+            </div>
+            <div id="codeEntry" class="code-entry" style="display: none;">
+                <input type="text" id="codeInput" maxlength="6" placeholder="Entrez le code">
+                <button id="submitCode">Valider</button>
+            </div>
             <h3>Joueurs morts :</h3>
             <ul id="deadList"></ul>
         </div>
+        <div id="torchSection">
+            <button id="torchButton">Allumer la lampe</button>
+        </div>
+        
+        <div id="coupleSection" style="display: none;">
+            <h3>Chat Couple</h3>
+            <div id="chatMessages"></div>
+            <input type="text" id="coupleChat" placeholder="Envoyer un message">
+        </div>
+        
         <div id="gameStatus" style="display: none;">
-            <h2>Temps restant : <span id="remainingTime"></span> secondes</h2>
+            <h2>Temps restant : <span id="remainingTime"></span></h2>
         </div>
     </div>
+
     <script>
         let playerName;
         let players = [];
         let readyPlayers = [];
         let role;
         let deadPlayers = [];
+        let isDead = false;
+        let gameStarted = false;
+        let deathCode = '';
+        let scannedDeadPlayers = [];  // Pour stocker uniquement les joueurs morts confirmés
+        let couplePartner = null;
+        let torchActive = false;
+        let torchStream = null;
+        const socket = io();
 
-        function startUpdateInterval() {
-            updatePlayerList(); // Mise à jour immédiate
-            setInterval(updatePlayerList, 100);
+        socket.on('update_dead_players', function(data) {
+            const deadPlayers = data.dead_players;
+            // Mettre à jour l'interface utilisateur pour afficher les joueurs morts
+            console.log("Morts confirmés:", deadPlayers);
+            // Mettez à jour votre affichage ici
+        });
+
+        function toggleTorch() {
+            // Vérifier la compatibilité du navigateur
+            if (!('mediaDevices' in navigator) || !('getUserMedia' in navigator.mediaDevices)) {
+                alert('Votre navigateur ne supporte pas la lampe torche');
+                return;
+            }
+
+            // Si la lampe est déjà active, on l'éteint
+            if (torchActive) {
+                stopTorch();
+                return;
+            }
+
+            // Demander l'accès à la caméra avec les contraintes pour la lampe torche
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'environment', // Caméra arrière
+                    advanced: [{
+                        torch: true
+                    }]
+                }
+            }).then(stream => {
+                // Récupérer le track vidéo
+                const track = stream.getVideoTracks()[0];
+                
+                // Vérifier les capacités de la torche
+                const capabilities = track.getCapabilities();
+                
+                // Vérifier si la torche est supportée
+                if (!capabilities.torch) {
+                    track.stop();
+                    alert('Votre appareil ne supporte pas la lampe torche');
+                    return;
+                }
+
+                // Appliquer les contraintes pour allumer la torche
+                return track.applyConstraints({
+                    advanced: [{
+                        torch: true
+                    }]
+                }).then(() => {
+                    // Succès : la torche est allumée
+                    torchActive = true;
+                    torchStream = stream;
+                    $('#torchButton')
+                        .text('Éteindre la lampe')
+                        .addClass('torch-active');
+                    
+                    // Ajouter un effet visuel ou sonore si souhaité
+                    navigator.vibrate(100); // Vibration courte pour confirmer
+                });
+            }).catch(error => {
+                // Gestion des différents types d'erreurs
+                console.error('Erreur de la lampe torche:', error);
+                
+                switch(error.name) {
+                    case 'NotAllowedError':
+                        alert('Vous devez autoriser l\'accès à la caméra pour utiliser la lampe torche');
+                        break;
+                    case 'NotFoundError':
+                        alert('Aucune caméra trouvée sur cet appareil');
+                        break;
+                    case 'OverconstrainedError':
+                        alert('Les paramètres de la caméra sont incompatibles');
+                        break;
+                    default:
+                        alert('Impossible d\'allumer la lampe torche');
+                }
+            });
+        }
+
+        function stopTorch() {
+            // Vérifier si un stream existe
+            if (!torchStream) return;
+
+            // Récupérer le track vidéo
+            const track = torchStream.getVideoTracks()[0];
+            
+            // Essayer d'éteindre la torche
+            track.applyConstraints({
+                advanced: [{
+                    torch: false
+                }]
+            }).then(() => {
+                // Arrêter complètement le track
+                track.stop();
+                
+                // Réinitialiser les variables
+                torchStream = null;
+                torchActive = false;
+                
+                // Mettre à jour l'interface
+                $('#torchButton')
+                    .text('Allumer la lampe')
+                    .removeClass('torch-active');
+                
+                // Feedback optionnel
+                navigator.vibrate(50); // Petite vibration
+            }).catch(error => {
+                console.error('Erreur lors de l\'extinction de la lampe:', error);
+                alert('Impossible d\'éteindre la lampe torche');
+            });
+        }
+
+        // Fonction de vérification de compatibilité
+        function isTorchSupported() {
+            return 'mediaDevices' in navigator && 
+                'getUserMedia' in navigator.mediaDevices;
+        }
+
+        // Initialisation
+        $(document).ready(function() {
+            // Vérifier la compatibilité et afficher/cacher le bouton
+            if (!isTorchSupported()) {
+                $('#torchButton').hide();
+            }
+
+            // Gestionnaire d'événement pour le bouton
+            $('#torchButton').on('click', toggleTorch);
+        });
+
+        // Gestion de la perte de focus (pour éteindre la lampe)
+        $(window).on('blur', function() {
+            if (torchActive) {
+                stopTorch();
+            }
+        });
+
+
+        // Ajouter un gestionnaire d'événements pour le bouton
+        $('#torchButton').on('click', toggleTorch);
+
+        function initCoupleCommunication() {
+            // Récupérer le partenaire du couple
+            $.ajax({
+                url: '/get_couple_partner',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ name: playerName }),
+                success: function(data) {
+                    couplePartner = data.partner;
+                    if (couplePartner) {
+                        $('#coupleSection').show();
+                        startCoupleMessagePolling();
+                    }
+                }
+            });
+        }
+
+        function startCoupleMessagePolling() {
+            setInterval(function() {
+                // Vérifier si le partenaire est toujours en vie
+                $.ajax({
+                    url: '/check_couple_partner_alive',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ name: playerName }),
+                    success: function(data) {
+                        if (!data.is_partner_alive) {
+                            // Partenaire mort
+                            $('#coupleSection').hide();
+                            alert(`Ton QuoicouBebouDesÎlesCaïmansSucréAuSucreDesÎlesDeLaRéunionCrèmementCrèméÀLaCrèmeFouettementFouêtéAuFouet est mort`);
+                            return;
+                        }
+
+                        // Récupérer les messages
+                        $.ajax({
+                            url: '/get_couple_messages',
+                            method: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ name: playerName }),
+                            success: function(messageData) {
+                                messageData.messages.forEach(function(msg) {
+                                    $('#chatMessages').append(`<div class="received-message">${msg.sender}: ${msg.message}</div>`);
+                                });
+                            }
+                        });
+                    }
+                });
+            }, 1000); // Toutes les secondes
+        }
+
+        $('#coupleChat').on('keypress', function(e) {
+            if (e.which == 13) { // Touche Entrée
+                const message = $(this).val();
+                if (message.trim() !== '') {
+                    $.ajax({
+                        url: '/send_couple_message',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            sender: playerName,
+                            message: message
+                        }),
+                        success: function() {
+                            $('#chatMessages').append(`<div class="sent-message">${playerName}: ${message}</div>`);
+                        }
+                    });
+                    $(this).val('');
+                }
+            }
+        });
+                // Modifier la fonction startGame pour initialiser la communication du couple
+        function startGame() {
+            $.ajax({
+                url: '/start_game',
+                method: 'POST',
+                success: function(data) {
+                    role = data[playerName];
+                    $('#countdown').hide();
+                    $('#roleDisplay').show();
+                    $('#role').text(role);
+                    startGameTimer();
+                    
+                    // Initialiser la communication du couple si nécessaire
+                    if (role === "Couple") {
+                        initCoupleCommunication();
+                    }
+                }
+            });
         }
 
 
+        // Vérifier l'état du jeu au chargement de la page
+        $(document).ready(function() {
+            checkGameState();
+        });
+
+        function checkGameState() {
+            $.ajax({
+                url: '/game_state',
+                method: 'GET',
+                success: function(data) {
+                    if (data.game_in_progress) {
+                        $('#welcome').hide();
+                        $('#gameInProgress').show();
+                    } else {
+                        $('#welcome').show();
+                        $('#gameInProgress').hide();
+                    }
+                }
+            });
+        }
+
+        function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+    }
+
+        function startGameTimer() {
+            $('#gameStatus').show();
+            const timeLimit = 600; // 10 minutes
+            let elapsedTime = 0;
+            const timer = setInterval(function() {
+                elapsedTime++;
+                const remainingTime = timeLimit - elapsedTime;
+                $('#remainingTime').text(formatTime(remainingTime));
+                if (remainingTime <= 0) {
+                    clearInterval(timer);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+            // Ajouter la gestion de la lampe torche
+        let torchOn = false;
+        $('#torchButton').click(function() {
+            torchOn = !torchOn;
+            $(this).text(torchOn ? 'Éteindre la lampe' : 'Allumer la lampe');
+            // Vous pouvez ajouter des effets visuels ici
+        });
+
+        function generateDeathCode() {
+            const characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ,;:!?./§&.É"(-È_ÇÀÁ)=^$*£#{[|@]}';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            return result;
+        }
+
+        function startUpdateInterval() {
+            updatePlayerList();
+            setInterval(updatePlayerList, 1000);
+        }
+
         $('#joinButton').click(function() {
             playerName = $('#playerName').val();
+            if (playerName.trim() === "") {
+                alert("Veuillez entrer un pseudo.");
+                return;
+            }
             $.ajax({
                 url: '/join',
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({ name: playerName }),
                 success: function(data) {
-                    players = data.players;
-                    $('#welcome').hide();
-                    $('#waiting').show();
-                    startUpdateInterval(); // Mise à jour immédiate après avoir rejoint
+                    if (data.success) {
+                        players = data.players;
+                        $('#welcome').hide();
+                        $('#waiting').show();
+                        startUpdateInterval();
+                    } else {
+                        alert(data.message);
+                        checkGameState();
+                    }
                 }
             });
         });
@@ -69,7 +499,9 @@
                 data: JSON.stringify({ name: playerName }),
                 success: function(data) {
                     readyPlayers = data.ready_players;
-                    if (readyPlayers.length === players.length) {
+                    $('#readyButton').prop('disabled', true);
+                    $('#readyButton').text('En attente des autres joueurs...');
+                    if (data.all_ready) {
                         startCountdown();
                     }
                 }
@@ -82,23 +514,42 @@
                 method: 'GET',
                 success: function(data) {
                     players = data.players;
+                    readyPlayers = data.ready_players;
+                    deadPlayers = data.dead_players;
                     $('#playerList').empty();
                     players.forEach(player => {
-                        $('#playerList').append(`<li>${player}</li>`);
+                        const readyStatus = readyPlayers.includes(player) ? ' (Prêt)' : '';
+                        $('#playerList').append(`<li>${player}${readyStatus}</li>`);
                     });
+                    $('#readyButton').prop('disabled', readyPlayers.includes(playerName));
+                    
+                    updateDeadList();
+                    
+                    if (data.all_ready && !gameStarted) {
+                        startCountdown();
+                    }
                 }
             });
         }
 
+        function updateDeadList() {
+            $('#deadList').empty();
+            scannedDeadPlayers.forEach(deadPlayer => {
+                $('#deadList').append(`<li>${deadPlayer}</li>`);
+            });
+        }
+
         function startCountdown() {
+            gameStarted = true;
             $('#waiting').hide();
             $('#countdown').show();
             let timeLeft = 10;
-            const timer = setInterval(function() {
-                $('#timer').text(timeLeft);
+            $('#timer').text(timeLeft);
+            const countdownInterval = setInterval(() => {
                 timeLeft--;
-                if (timeLeft < 0) {
-                    clearInterval(timer);
+                $('#timer').text(timeLeft);
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
                     startGame();
                 }
             }, 1000);
@@ -108,91 +559,79 @@
             $.ajax({
                 url: '/start_game',
                 method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ name: playerName }),
                 success: function(data) {
-                    role = data[playerName];
                     $('#countdown').hide();
                     $('#roleDisplay').show();
+                    $('#gameStatus').show();
+                    role = data.role;
                     $('#role').text(role);
                     startGameTimer();
                 }
             });
         }
 
-        function startGameTimer() {
-            $('#gameStatus').show();
-            const timeLimit = 600; // 10 minutes
-            let elapsedTime = 0;
-            const timer = setInterval(function() {
-                elapsedTime++;
-                const remainingTime = timeLimit - elapsedTime;
-                $('#remainingTime').text(remainingTime);
-                if (remainingTime <= 0) {
-                    clearInterval(timer);
-                    endGame();
-                }
-            }, 1000);
+        function assignRole() {
+            // Logique pour assigner un rôle au joueur
+            return "Rôle assigné"; // Remplacez par la logique réelle
         }
 
         $('#deadButton').click(function() {
+            deathCode = generateDeathCode();
             $.ajax({
                 url: '/set_dead',
                 method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({ name: playerName }),
+                data: JSON.stringify({ name: playerName, code: deathCode }),
                 success: function(data) {
-                    deadPlayers.push(playerName);
-                    $('#deadList').append(`<li>${playerName}</li>`);
-                    $('#roleDisplay').hide();
+                    isDead = true;
+                    $('#deadButton').hide();
+                    $('#scanButton').hide();
+                    $('#deathCode').text(deathCode);
+                    $('#deathCodeDisplay').show();
                 }
             });
         });
 
-        function endGame() {
+        $('#scanButton').click(function() {
+            $('#codeEntry').show();
+            $('#codeInput').focus();
+        });
+
+        $('#submitCode').click(function() {
+            const enteredCode = $('#codeInput').val().toUpperCase();
+            if (enteredCode.length !== 6) {
+                alert("Le code doit contenir 6 caractères");
+                return;
+            }
+
             $.ajax({
-                url: '/end_game',
+                url: '/verify_dead',
                 method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ 
+                    scanner: playerName, 
+                    code: enteredCode 
+                }),
                 success: function(data) {
-                    alert(data.message);
+                    if (data.success) {
+                        alert("Code valide ! Joueur mort confirmé.");
+                        $('#codeInput').val('');
+                        $('#codeEntry').hide();
+                        updatePlayerList();
+                    } else {
+                        alert("Code invalide !");
+                        $('#codeInput').val('');
+                    }
                 }
             });
-        }
+        });
+
+        // Gestion de l'entrée du code
+        $('#codeInput').on('input', function() {
+            this.value = this.value.toUpperCase();
+        });
     </script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            text-align: center;
-            padding: 50px;
-        }
-        .container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            margin: auto;
-        }
-        input {
-            padding: 10px;
-            margin: 10px 0;
-            width: 80%;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        button {
-            padding: 10px 15px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #218838;
-        }
-        h1, h2 {
-            color: #333;
-        }
-    </style>
 </body>
 </html>
