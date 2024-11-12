@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+    
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,8 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <iframe id="backgroundMusic" width="0" height="0" src="https://www.youtube.com/embed/videoseries?list=PLqi51aibKx1mwW9oZm5dDyuFy1gptnkJp&autoplay=1&loop=1" frameborder="0" allow="autoplay; encrypted-media"></iframe>
+    <audio id="backgroundMusic" width="0" height="0" src="./Crime Music No CopyrightScary Murder Mystery BG Music No Copyright - Suspense & Mysterious Music.mp3" loop></audio>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,6 +18,7 @@
             padding: 20px;
             background-color: #f0f0f0;
         }
+
         .container {
             max-width: 600px;
             margin: 0 auto;
@@ -106,60 +109,259 @@
             color: black;
             box-shadow: 0 0 10px rgba(255,255,0,0.7);
         }
+
+        /* Style du modal */
+        .modal {
+            display: none; /* Masqué par défaut */
+            position: fixed; /* Reste en place */
+            z-index: 1; /* Au-dessus des autres éléments */
+            left: 0;
+            top: 0;
+            width: 100%; /* Largeur complète */
+            height: 100%; /* Hauteur complète */
+            overflow: auto; /* Ajoute un défilement si nécessaire */
+            background-color: rgb(0,0,0); /* Couleur de fond noir */
+            background-color: rgba(0,0,0,0.4); /* Fond noir avec transparence */
+        }
+
+        /* Contenu du modal */
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% du haut et centré */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Largeur de 80% */
+        }
+
+        /* Bouton de fermeture */
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Prend toute la hauteur de la fenêtre */
+        }
+
+        .styled-button {
+            background-color: #f30002; /* Utilisez la même couleur que l'autre bouton */
+            color: #ffffff; /* Couleur du texte */
+            border: none;
+            padding: 15px 30px; /* Ajustez le padding selon vos besoins */
+            font-size: 16px; /* Taille de la police */
+            cursor: pointer;
+            border-radius: 5px; /* Coins arrondis */
+            transition: background-color 0.3s ease; /* Animation de transition */
+        }
+
+        .styled-button:hover {
+            background-color: #d20000; /* Couleur au survol */
+        }
+
+        /* Styles pour mobile */
+        @media (max-width: 600px) {
+            .styled-button {
+                font-size: 14px; /* Réduire la taille de la police sur mobile */
+                padding: 10px 20px; /* Ajuster le padding sur mobile */
+            }
+        }
+
+        /* Styles pour le header en dégradé */
+        .gradient-header {
+            position: relative; /* Nécessaire pour le positionnement du pseudo-élément */
+            background: linear-gradient(to right, #800000, #4B0000, #660000, #8B0000, #000080, #000033, #002147, #1B0030);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; /* Pour le texte */
+            color: transparent; /* Valeur de secours */
+        }
+
+        .gradient-header::after {
+            content: ''; /* Nécessaire pour afficher le pseudo-élément */
+            position: absolute; /* Positionnement absolu par rapport à l'élément parent */
+            left: 0; /* Aligner à gauche */
+            bottom: -2px; /* Positionner légèrement en dessous du texte */
+            height: 6px; /* Augmentez la hauteur de la ligne de soulignement */
+            width: 100%; /* Largeur complète */
+            background: linear-gradient(to right, #800000, #4B0000, #660000, #8B0000, #000080, #000033, #002147, #1B0030); /* Même dégradé que le texte */
+            z-index: -1; /* Envoyer derrière le texte */
+        }
+
+        .gradient-title {
+            background: linear-gradient(to right, #4B0000, #800000, #A00000, #E60000, #FF0000);
+            background-clip: text; /* Propriété standard */
+            -webkit-background-clip: text; /* Préfixe pour les navigateurs basés sur WebKit */
+            -webkit-text-fill-color: transparent; /* Préfixe pour les navigateurs basés sur WebKit */
+            color: transparent; /* Valeur de secours pour les navigateurs qui ne supportent pas background-clip */
+        }
+
+        #deathCode {
+            user-select: none;
+        }
     </style>
+
 </head>
+
 <body>
+
     <div class="container">
-        <h1>Murder Mystery</h1>
-        <div id="welcome">
-            <input type="text" id="playerName" placeholder="Entrez votre pseudo">
-            <button id="joinButton">Rejoindre</button>
+
+        <!-- Bouton pour accéder à la page de saisie du pseudo -->
+        <div id="accessPageButtonContainer" style="text-align: center; margin: 20px 0;">
+            <button class="styled-button" onclick="pageAccess()">Accéder à la page de saisie du pseudo</button>
         </div>
-        <div id="gameInProgress" style="display: none;">
-            <h2>Une partie est déjà en cours</h2>
-            <p>Veuillez attendre qu'elle se termine pour rejoindre.</p>
+
+        <!-- Pop-up Modal -->
+        <div id="rulesModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+
+                <h2 class="gradient-header">Règles du jeu Murder Mystery</h2>
+                <p>
+                    Bienvenue dans Murder Mystery ! Voici comment le jeu fonctionne :
+                </p>
+
+                <h3 class="gradient-header"><u>Objectif du jeu </u></h3>
+                <p>
+                    L'objectif est de découvrir qui est le(s) meurtrier(s) parmi les joueurs. Les joueurs peuvent avoir différents rôles (comme shérif, médecin, caméraman, couple), chacun avec ses propres capacités et objectifs. Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou lorsque le temps est écoulé.
+                </p>
+
+                <h3 class="gradient-header"><u>Règles de base </u></h3>
+                <ul>
+                    <li>Chaque joueur reçoit un rôle secret au début du jeu.</li>
+                    <li>Les joueurs doivent interagir, poser des questions et rassembler des indices.</li>
+                    <li>Les joueurs peuvent "se mettre mort" pour simuler leur mort et créer des mystères.</li>
+                    <li>Les joueurs peuvent vérifier les codes des morts pour confirmer les décès.</li>
+                    <li>Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou que le temps est écoulé.</li>
+                    <li>Lorsque le temps est écoulé, le gagnant est désigné de manière aléatoire</li> 
+                </ul>
+
+                <h3 class="gradient-header"><u>Interdictions et obligations</u></h3>
+                    <li><b><font color="red">Interdiction</font></b> d'utiliser vos vrais noms et prénoms (pour Léo par exemple, il peut utiliser Diego ou pour Axel le nom de son daron <i>(ah bah nan il n'en a pas 🙃)</i>)</li>
+                    <li><b><font color="red">Interdiction</font></b> de rester par groupe de plus de 3 personnes</li>
+                    <li><b><font color="red">Interdiction</font></b> de rester plus de 15 secondes au même endroit</li> 
+                    <li><b><font color="red">Interdiction</font></b> de bouger une fois mis "prêt".</li>    
+                    <li><b><font color="red">Interdiction</font></b> de se mettre à côté d'un joueur avant de lancer une partie.</li>
+                    <li><b><font color="red">Interdiction</font></b> de partager son rôle durant la partie.</li>
+                    <li><b><font color="red">Interdiction</font></b> de se parler par message ailleurs que dans le chat du jeu. (pour le couple)</li>
+                    <li><b><font color="red">Interdiction</font></b> de se mettre dans le même groupe pour les personnes possédant les 2 armes (shérif + personnes qui a trouvé la seconde arme)</li>
+                    <li><b><font color="red">Interdiction</font></b> de dévoiler où se trouve la deuxième arme et d'utiliser l'arme durant la prochaine partie(personne qui l'a caché) </li>
+                    <li><b><font color="red">Interdiction</font></b> de prendre le téléphone d'une autre personne (sauf si elle est morte et pour rentrer le code)</li>
+                    <li><b><font color="red">Interdiction</font></b> de former des alliances (sauf pour le couple)</li>
+                    <li><b><font color="red">Interdiction</font></b> de faire semblant de rentrer le code (si le joueur mort n'a pas encore été mit dans la liste et que le joueur entrant le code est un meurtrier)</li>
+                    <li><b><font color="blue">Obligation</font></b> de garder son téléphone alumé en étant mort pour pouvoir rentrer les codes de mort </li>
+                    <li><b><font color="blue">Obligation</font></b> de rester allongé par terre quand on est mort et de ne pas bouger ni parler par la suite</li>
+                    <li><b><font color="blue">Obligation</font></b> de ne pas parler à une personne morte</li>
+                    
+
+                <h3 class="gradient-header"><u>Comment jouer </u></h3>
+                <p>
+                    1. Entrez votre pseudo et rejoignez le jeu.
+                    <br>
+                    2. Dispersez-vous dans la maison et mettez vous prêts à jouer.
+                    <br>
+                    3. Attendez que tous les joueurs soient prêts.
+                    <br>
+                    4. Suivez les instructions à l'écran et interagissez avec les autres joueurs.
+                    <br>
+                    5. Essayez de découvrir qui est le(s) meurtrier(s) ou tuer tout les innoncents sans vous faire remarquer avant que le temps ne soit écoulé.  
+                </p>
+                <p>
+                    Amusez-vous bien et bonne chance !
+                </p>
+
+            </div>
         </div>
-        <div id="waiting" style="display: none;">
-            <h2>Joueurs en attente</h2>
-            <ul id="playerList"></ul>
-            <button id="readyButton">Prêt</button>
+
+        <!-- Page de saisie du pseudo -->
+        <div id="accessPage" style="display: none;">
+            <h1 class="gradient-title">Murder Mystery</h1>
+
+            <div id="welcome">
+                <input type="text" id="playerName" placeholder="Entrez votre pseudo">
+                <button id="joinButton">Rejoindre</button>
+            </div>
+
+
+            <div id="gameInProgress" style="display: none;">
+                <h2>Une partie est déjà en cours</h2>
+                <p>Veuillez attendre qu'elle se termine pour rejoindre.</p>
+            </div>
+
+
+            <div id="waiting" style="display: none;">
+                <h2>Joueurs en attente</h2>
+                <ul id="playerList"></ul>
+                <button id="readyButton">Prêt</button>
+            </div>
         </div>
+
+
         <div id="countdown" style="display: none;">
             <h2>Démarrage du jeu dans <span id="timer">10</span> secondes</h2>
         </div>
-        <div id="roleDisplay" style="display: none;">
-            <h2>Votre rôle : <span id="role"></span></h2>
+
+        <div id="game" style="display: none;">
+
+            <div id="roleDisplay" style="display: none;">
+                <h2>Votre rôle : <span id="role"></span></h2>
+                <!-- Autres éléments pour le rôle -->
+            </div>
+
             <button id="deadButton">Se mettre mort</button>
             <button id="scanButton">Vérifier un mort</button>
+
+
             <div id="deathCodeDisplay" style="display: none;">
                 <p>Votre code de mort :</p>
-                <div id="deathCode"></div>
+                <div id="deathCode" onpaste="return false"></div>
             </div>
+
+
             <div id="codeEntry" class="code-entry" style="display: none;">
                 <input type="text" id="codeInput" maxlength="6" placeholder="Entrez le code">
                 <button id="submitCode">Valider</button>
             </div>
+
+            <div id="torchSection">
+                <button class="switch">Allumer la lampe</button>
+            </div>
+
+
             <h3>Joueurs morts :</h3>
-            <ul id="deadList"></ul>
-        </div>
-        <div id="torchSection">
-            <button id="torchButton">Allumer la lampe</button>
-        </div>
-        
-        <div id="coupleSection" style="display: none;">
-            <h3>Chat Couple</h3>
-            <div id="chatMessages"></div>
-            <input type="text" id="coupleChat" placeholder="Envoyer un message">
-        </div>
-        
-        <div id="gameStatus" style="display: none;">
-            <h2>Temps restant : <span id="remainingTime"></span></h2>
+            <ul id="dead-players-list">
+                <!-- La liste des joueurs morts sera insérée ici -->
+            </ul>
+
+
+            <div id="coupleSection" style="display: none;">
+                <h3>Chat Couple</h3>
+                <div id="chatMessages"></div>
+                <input type="text" id="coupleChat" placeholder="Envoyer un message">
+            </div>
+            
+    
+            <div id="gameStatus" style="display: none;">
+                <h2>Temps restant : <span id="remainingTime"></span></h2>
+            </div>
         </div>
     </div>
 
     <script>
         let playerName;
-        let players = [];
+        let players  = [];
         let readyPlayers = [];
         let role;
         let deadPlayers = [];
@@ -172,11 +374,57 @@
         let torchStream = null;
         const socket = io();
 
+        $('#welcome').hide();
+        $('#game').hide();
+
+        // Obtenir le modal
+        const modal = document.getElementById("rulesModal");
+
+        const music = document.getElementById('backgroundMusic');
+
+        // Obtenir l'élément <span> qui ferme le modal
+        const closeButton = document.getElementsByClassName("close-button")[0];
+
+        // Fonction pour ouvrir le modal
+        function openModal() {
+            modal.style.display = "block";
+        }
+
+        // Lorsque l'utilisateur clique sur <span> (x), fermez le modal
+        closeButton.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        // Lorsque l'utilisateur clique n'importe où en dehors du modal, fermez-le
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Ouvrir le modal dès que la page est chargée
+        window.onload = function() {
+            $('#accessPageButtonContainer').show();
+        }
+
+        function pageAccess() {
+            $('#accessPageButtonContainer').hide();
+            $('#accessPage').show();
+            music.play();
+            openModal();
+        }
+
+        // Écouter l'événement pour mettre à jour la liste des joueurs morts
         socket.on('update_dead_players', function(data) {
             const deadPlayers = data.dead_players;
-            // Mettre à jour l'interface utilisateur pour afficher les joueurs morts
-            console.log("Morts confirmés:", deadPlayers);
-            // Mettez à jour votre affichage ici
+            // Mettez à jour l'interface utilisateur avec la liste des joueurs morts
+            const deadPlayersList = document.getElementById('dead-players-list'); // Assurez-vous d'avoir cet élément dans votre HTML
+            deadPlayersList.innerHTML = ''; // Vider la liste actuelle
+            deadPlayers.forEach(function(player) {
+                const listItem = document.createElement('li');
+                listItem.textContent = player; // Ajouter le joueur mort à la liste
+                deadPlayersList.appendChild(listItem);
+            });
         });
 
         function toggleTorch() {
@@ -381,24 +629,30 @@
                 }
             }
         });
-                // Modifier la fonction startGame pour initialiser la communication du couple
+        
+        
+         // Modifier la fonction startGame pour initialiser la communication du couple
         function startGame() {
             $.ajax({
                 url: '/start_game',
                 method: 'POST',
+                contentType: 'application/json', // Ajoutez ceci pour spécifier le type de contenu
+                data: JSON.stringify({ name: playerName }), // Envoyez le nom du joueur
                 success: function(data) {
-                    role = data[playerName];
+                    role = data.roles[playerName];
                     $('#countdown').hide();
-                    $('#roleDisplay').show();
                     $('#role').text(role);
+                    $('#game').show();
+                    $('#torchButton').show();
+
+                    // Arrêter la musique
+                    const music = document.getElementById('backgroundMusic');
+                    music.pause(); // Arrête la musique
+                    music.currentTime = 0; // Remet à zéro la musique
+
                     startGameTimer();
-                    
-                    // Initialiser la communication du couple si nécessaire
-                    if (role === "Couple") {
-                        initCoupleCommunication();
-                    }
-                }
-            });
+                }  
+        });
         }
 
 
@@ -406,6 +660,7 @@
         $(document).ready(function() {
             checkGameState();
         });
+
 
         function checkGameState() {
             $.ajax({
@@ -423,20 +678,41 @@
             });
         }
 
+
         function formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-    }
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+        }
+
 
         function startGameTimer() {
-            $('#gameStatus').show();
-            const timeLimit = 600; // 10 minutes
+            $('#gameStatus').show(); // Afficher l'état du jeu
+            const timeLimit = 600; // 10 minutes en secondes
             let elapsedTime = 0;
+
+            
+
+            // Afficher les rôles pendant les 10 premières secondes
+            $('#roleDisplay').show();
+            const roleDisplayDuration = 10; // secondes
+
+            // Masquer les rôles après 10 secondes
+            setTimeout(function() {
+                $('#roleDisplay').hide();
+            }, roleDisplayDuration * 1000);
+
             const timer = setInterval(function() {
                 elapsedTime++;
                 const remainingTime = timeLimit - elapsedTime;
                 $('#remainingTime').text(formatTime(remainingTime));
+
+                // Afficher les rôles pendant les 30 dernières secondes
+                if (remainingTime <= 30) {
+                    $('#roleDisplay').show();
+                }
+
+                // Si le temps restant est écoulé
                 if (remainingTime <= 0) {
                     clearInterval(timer);
                     endGame();
@@ -444,16 +720,72 @@
             }, 1000);
         }
 
-            // Ajouter la gestion de la lampe torche
-        let torchOn = false;
-        $('#torchButton').click(function() {
-            torchOn = !torchOn;
-            $(this).text(torchOn ? 'Éteindre la lampe' : 'Allumer la lampe');
-            // Vous pouvez ajouter des effets visuels ici
-        });
+        // -----------------------------------------------------------
+        // -----------------------------------------------------------
+        // -----------------------------------------------------------
+        // -----------------------------------------------------------
+        const SUPPORTS_MEDIA_DEVICES = 'mediaDevices' in navigator;
+        const log = function (msg) {
+            console.log(msg);
+        };
 
+        if (SUPPORTS_MEDIA_DEVICES) {
+        //Get the environment camera (usually the second one)
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+
+            const cameras = devices.filter((device) => device.kind === 'videoinput');
+
+            if (cameras.length === 0) {
+            log('No camera found on this device.');
+            }
+            // Create stream and get video track
+            navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment',
+            }
+            }).then(stream => {
+            const track = stream.getVideoTracks()[0];
+
+            //Create image capture object and get camera capabilities
+            const imageCapture = new ImageCapture(track)
+            imageCapture.getPhotoCapabilities().then(capabilities => {
+                //let there be light!
+                const btn = document.querySelector('.switch');
+                const torchSupported = !!capabilities.torch || (
+                'fillLightMode' in capabilities &&
+                capabilities.fillLightMode.length != 0 &&
+                capabilities.fillLightMode != 'none'
+                );
+
+                if (torchSupported) {
+                let torch = false;
+                btn.addEventListener('click', function (e) {
+                    try {
+                    track.applyConstraints({
+                        advanced: [{
+                        torch: (torch = !torch)
+                        }]
+                    });
+                    btn.innerText = torch ? 'Éteindre la lampe' : 'Allumer la lampe';
+                    } catch (err) {
+                    log(err);
+                    }
+                });
+                } else {
+                log("No torch found");
+                }
+            }).catch(log);
+            }).catch(log);
+        }).catch(log);
+
+        }
+
+        // -----------------------------------------------------------
+        // -----------------------------------------------------------
+        // -----------------------------------------------------------
+        // -----------------------------------------------------------
         function generateDeathCode() {
-            const characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ,;:!?./§&.É"(-È_ÇÀÁ)=^$*£#{[|@]}';
+            const characters = '0123456789AÀÁÂÃÄÅÆBÇCĆČDÈÉÊËEĒĖĘFGHIÌÍÎÏIĪJKLMNOÒÓÕÖØŌŐŒPQRSTUÙÚÛÜŪŰVWXYŸZ,;:!?./§&.É"(-_)=^$*£#{[|@]}';
             let result = '';
             for (let i = 0; i < 6; i++) {
                 result += characters.charAt(Math.floor(Math.random() * characters.length));
@@ -461,10 +793,12 @@
             return result;
         }
 
+
         function startUpdateInterval() {
             updatePlayerList();
             setInterval(updatePlayerList, 1000);
         }
+
 
         $('#joinButton').click(function() {
             playerName = $('#playerName').val();
@@ -491,6 +825,7 @@
             });
         });
 
+
         $('#readyButton').click(function() {
             $.ajax({
                 url: '/ready',
@@ -507,6 +842,7 @@
                 }
             });
         });
+
 
         function updatePlayerList() {
             $.ajax({
@@ -532,12 +868,14 @@
             });
         }
 
+
         function updateDeadList() {
             $('#deadList').empty();
             scannedDeadPlayers.forEach(deadPlayer => {
                 $('#deadList').append(`<li>${deadPlayer}</li>`);
             });
         }
+
 
         function startCountdown() {
             gameStarted = true;
@@ -555,27 +893,6 @@
             }, 1000);
         }
 
-        function startGame() {
-            $.ajax({
-                url: '/start_game',
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ name: playerName }),
-                success: function(data) {
-                    $('#countdown').hide();
-                    $('#roleDisplay').show();
-                    $('#gameStatus').show();
-                    role = data.role;
-                    $('#role').text(role);
-                    startGameTimer();
-                }
-            });
-        }
-
-        function assignRole() {
-            // Logique pour assigner un rôle au joueur
-            return "Rôle assigné"; // Remplacez par la logique réelle
-        }
 
         $('#deadButton').click(function() {
             deathCode = generateDeathCode();
@@ -592,6 +909,8 @@
                     $('#deathCodeDisplay').show();
                 }
             });
+            $('#scanButton').hide();
+            $('#codeEntry').hide();
         });
 
         $('#scanButton').click(function() {
@@ -632,6 +951,33 @@
         $('#codeInput').on('input', function() {
             this.value = this.value.toUpperCase();
         });
+    
+        let text = "Murder Mystery";
+        let index = 0;
+        let forward = true;
+        let interval = 200;  // Vitesse de l'animation (en millisecondes)
+
+        function updateTitle() {
+        if (forward) {
+            // Ajoute une lettre à chaque fois
+            document.title = text.substring(0, index + 1);
+            index++;
+            if (index === text.length) {
+            forward = false;  // Changer de direction quand tout le texte est affiché
+            }
+        } else {
+            // Enlève une lettre à chaque fois
+            document.title = text.substring(0, index);
+            index--;
+            if (index === 0) {
+            forward = true;  // Recommence à afficher quand tout le texte est enlevé
+            }
+        }
+        }
+
+        setInterval(updateTitle, interval);
+
     </script>
 </body>
+
 </html>

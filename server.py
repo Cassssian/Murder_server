@@ -19,9 +19,21 @@ def gest_io(bibliotheques : list[str]):
                     except ImportError:
                         print(f"Installation de la bibliothèque {lib}...")
                         subprocess.check_call(["pip", "install", lib])
+                elif lib == "Flask-SocketIO":
+                    try:
+                        __import__("flask_socketio")
+                    except ImportError:
+                        print(f"Installation de la bibliothèque {lib}...")
+                        subprocess.check_call(["pip", "install", lib])
+                else:
+                    try:
+                        __import__(lib)
+                    except ImportError:
+                        print(f"Installation de la bibliothèque {lib}...")
+                        subprocess.check_call(["pip", "install", lib])
                     
 # Liste des bibliothèques à installer si elles ne sont pas déjà installées
-bibliotheques_a_installer = ["Flask", "Flask-CORS", "Flask-SocketIO"]
+bibliotheques_a_installer = ["Flask", "Flask-CORS", "Flask-SocketIO", "socket"]
 
 gest_io(bibliotheques_a_installer)
 
@@ -31,12 +43,19 @@ gest_io(bibliotheques_a_installer)
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
+import socket
 import random
 import time
+
+
+
 
 app = Flask(__name__, static_url_path='', static_folder='static')
 CORS(app)
 socketio = SocketIO(app)
+
+
+
 
 # Variables globales pour gérer l'état du jeu
 players = []
@@ -49,6 +68,10 @@ game_in_progress = False  # État du jeu
 couple_messages = {}
 couple_pairs = {}
 
+
+
+
+
 @app.route('/get_couple_partner', methods=['POST'])
 def get_couple_partner():
     data = request.get_json()
@@ -59,6 +82,7 @@ def get_couple_partner():
     partner = next((p for p in couple_members if p != player_name), None)
     
     return jsonify({'partner': partner})
+
 
 @app.route('/send_couple_message', methods=['POST'])
 def send_couple_message():
@@ -80,6 +104,7 @@ def send_couple_message():
     
     return jsonify({'status': 'success'})
 
+
 @app.route('/get_couple_messages', methods=['POST'])
 def get_couple_messages():
     data = request.get_json()
@@ -90,6 +115,7 @@ def get_couple_messages():
     couple_messages[player_name] = []
     
     return jsonify({'messages': messages})
+
 
 @app.route('/check_couple_partner_alive', methods=['POST'])
 def check_couple_partner_alive():
@@ -107,13 +133,16 @@ def check_couple_partner_alive():
         'is_partner_alive': is_partner_alive
     })
 
+
 @app.route('/')
 def home():
     return app.send_static_file('index.html')
 
+
 @app.route('/game_state', methods=['GET'])
 def game_state():
     return jsonify({'game_in_progress': game_in_progress})
+
 
 @app.route('/join', methods=['POST'])
 def join():
@@ -141,18 +170,20 @@ def ready():
         'all_ready': len(ready_players) == len(players)
     })
 
+
 @app.route('/start_game', methods=['POST'])
 def start_game():
     global game_in_progress, roles
     data = request.get_json()
     player_name = data.get('name')
-    
+
     if not game_in_progress:
         game_in_progress = True
         if not roles:
-            roles = {player: random.choice(['Couple', 'Single']) for player in players}
+            roles = assign_roles(players)
             return jsonify({'success': True, 'roles': roles})
     return jsonify({'success': False, 'message': 'Une partie est déjà en cours.'})
+
 
 @app.route('/get_players', methods=['GET'])
 def get_players():
@@ -162,6 +193,7 @@ def get_players():
         'dead_players': scanned_dead_players,  # Uniquement les morts confirmés
         'all_ready': len(ready_players) == len(players)
     })
+
 
 @app.route('/set_dead', methods=['POST'])
 def set_dead():
@@ -173,6 +205,7 @@ def set_dead():
         death_codes[death_code] = player_name
     return jsonify({'success': True})
 
+
 @app.route('/verify_dead', methods=['POST'])
 def verify_dead():
     data = request.get_json()
@@ -182,7 +215,7 @@ def verify_dead():
         if dead_player not in scanned_dead_players:
             scanned_dead_players.append(dead_player)
             # Émettre un événement pour informer tous les joueurs
-            socketio.emit('update_dead_players', {'dead_players': scanned_dead_players})
+            socketio.emit('update_dead_players', {'dead_players': scanned_dead_players})  # Émettre l'événement
             return jsonify({
                 'success': True,
                 'dead_players': scanned_dead_players
@@ -210,11 +243,11 @@ def end_game():
     
     return jsonify({'message': result})
 
+
 def assign_roles(players):
     roles = {}
     # Copier la liste des joueurs
     available_players = players.copy()
-    print(available_players)
     
     # Assigner les meurtriers (2 joueurs si possible)
     murderer_count = min(2, len(players) // 4)
@@ -254,8 +287,8 @@ def assign_roles(players):
     # Le reste des joueurs sont des civils
     for player in available_players:
         roles[player] = "Civil"
-    
     return roles
+
 
 def check_winner():
     murderers = [p for p in players if roles.get(p) == "Meurtrier"]
@@ -271,11 +304,17 @@ def check_winner():
     elif not innocents_alive:
         return "Les meurtriers ont gagné en éliminant tous les innocents!"
     elif time_elapsed:
-        return f"Le temps est écoulé! Les {random.choice(["innocents", "meurtriers"])} ont gagné!"
+        return f"Le temps est écoulé! Les {random.choice(['innocents', 'meurtriers'])} ont gagné!"
     else:
         return "Le jeu continue..."
-        
-if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
 
-print(f"Server is running on url : {request.remote_addr}")
+
+
+
+if __name__ == '__main__':
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+
+    print(f"Le serveur est en cours d'exécution sur : http://{local_ip}:{5000}")
+
+    socketio.run(app, '0.0.0.0', 5000, debug=True)
