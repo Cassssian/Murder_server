@@ -218,9 +218,9 @@
 
     <div class="container">
 
-        <!-- Bouton pour accéder à la page de saisie du pseudo -->
+        <!-- Bouton pour accéder au jeu -->
         <div id="accessPageButtonContainer" style="text-align: center; margin: 20px 0;">
-            <button class="styled-button" onclick="pageAccess()">Accéder à la page de saisie du pseudo</button>
+            <button class="styled-button" onclick="pageAccess()">Accéder au jeu</button>
         </div>
 
         <!-- Pop-up Modal -->
@@ -639,7 +639,7 @@
                 contentType: 'application/json', // Ajoutez ceci pour spécifier le type de contenu
                 data: JSON.stringify({ name: playerName }), // Envoyez le nom du joueur
                 success: function(data) {
-                    role = data.roles[playerName];
+                    console.log(data);
                     $('#countdown').hide();
                     $('#role').text(role);
                     $('#game').show();
@@ -724,61 +724,72 @@
         // -----------------------------------------------------------
         // -----------------------------------------------------------
         // -----------------------------------------------------------
-        const SUPPORTS_MEDIA_DEVICES = 'mediaDevices' in navigator;
+        const consoleOutput = document.getElementById("console");
         const log = function (msg) {
-            console.log(msg);
+        console.log(msg);
         };
 
-        if (SUPPORTS_MEDIA_DEVICES) {
-        //Get the environment camera (usually the second one)
+        // Check for media device support
+        if ('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices) {
+        // Enumerate devices to find available cameras
         navigator.mediaDevices.enumerateDevices().then(devices => {
-
-            const cameras = devices.filter((device) => device.kind === 'videoinput');
+            const cameras = devices.filter(device => device.kind === 'videoinput');
 
             if (cameras.length === 0) {
             log('No camera found on this device.');
+            return;
             }
-            // Create stream and get video track
+
+            // Access video stream from environment-facing camera if available
             navigator.mediaDevices.getUserMedia({
             video: {
-                facingMode: 'environment',
+                facingMode: { ideal: 'environment' } // Prefer back-facing camera
             }
             }).then(stream => {
             const track = stream.getVideoTracks()[0];
 
-            //Create image capture object and get camera capabilities
-            const imageCapture = new ImageCapture(track)
-            imageCapture.getPhotoCapabilities().then(capabilities => {
-                //let there be light!
+            // Check if ImageCapture is supported
+            if ('ImageCapture' in window) {
+                const imageCapture = new ImageCapture(track);
+
+                // Attempt to get camera capabilities, including torch support
+                imageCapture.getPhotoCapabilities().then(capabilities => {
                 const btn = document.querySelector('.switch');
-                const torchSupported = !!capabilities.torch || (
-                'fillLightMode' in capabilities &&
-                capabilities.fillLightMode.length != 0 &&
-                capabilities.fillLightMode != 'none'
-                );
+                const torchSupported = capabilities.torch || 
+                    (capabilities.fillLightMode && capabilities.fillLightMode.includes('flash'));
 
                 if (torchSupported) {
-                let torch = false;
-                btn.addEventListener('click', function (e) {
+                    let torch = false;
+                    btn.addEventListener('click', function () {
                     try {
-                    track.applyConstraints({
-                        advanced: [{
-                        torch: (torch = !torch)
-                        }]
-                    });
-                    btn.innerText = torch ? 'Éteindre la lampe' : 'Allumer la lampe';
+                        // Toggle the torch state
+                        track.applyConstraints({
+                        advanced: [{ torch: (torch = !torch) }]
+                        });
                     } catch (err) {
-                    log(err);
+                        log(`Torch toggle error: ${err.message}`);
                     }
-                });
+                    });
                 } else {
-                log("No torch found");
+                    log("Torch mode is not supported on this device.");
                 }
-            }).catch(log);
-            }).catch(log);
-        }).catch(log);
+                }).catch(err => {
+                log(`Error retrieving photo capabilities: ${err.message}`);
+                });
+            } else {
+                log("ImageCapture API is not supported. Torch control is unavailable.");
+            }
 
+            }).catch(err => {
+            log(`Error accessing video stream: ${err.message}`);
+            });
+        }).catch(err => {
+            log(`Error enumerating devices: ${err.message}`);
+        });
+        } else {
+        log("Media devices or getUserMedia is not supported in this browser.");
         }
+
 
         // -----------------------------------------------------------
         // -----------------------------------------------------------

@@ -177,11 +177,11 @@ def start_game():
     data = request.get_json()
     player_name = data.get('name')
 
-    if not game_in_progress:
-        game_in_progress = True
-        if not roles:
-            roles = assign_roles(players)
-            return jsonify({'success': True, 'roles': roles})
+    # if not game_in_progress:
+    game_in_progress = True
+    if not roles:
+        roles = assign_roles(players)
+        return jsonify({'success': True, 'roles': roles})
     return jsonify({'success': False, 'message': 'Une partie est déjà en cours.'})
 
 
@@ -287,6 +287,7 @@ def assign_roles(players):
     # Le reste des joueurs sont des civils
     for player in available_players:
         roles[player] = "Civil"
+    print(roles)
     return roles
 
 
