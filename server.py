@@ -177,11 +177,15 @@ def start_game():
     data = request.get_json()
     player_name = data.get('name')
 
-    # if not game_in_progress:
-    game_in_progress = True
-    if not roles:
+    if not player_name in roles.keys() and not game_in_progress:
+        game_in_progress = True
         roles = assign_roles(players)
         return jsonify({'success': True, 'roles': roles})
+    
+    elif player_name in roles.keys():
+        game_in_progress = True
+        return jsonify({'success': True, 'roles': roles})
+    
     return jsonify({'success': False, 'message': 'Une partie est déjà en cours.'})
 
 

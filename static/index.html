@@ -639,7 +639,7 @@
                 contentType: 'application/json', // Ajoutez ceci pour spécifier le type de contenu
                 data: JSON.stringify({ name: playerName }), // Envoyez le nom du joueur
                 success: function(data) {
-                    console.log(data);
+                    role = data.roles[playerName];
                     $('#countdown').hide();
                     $('#role').text(role);
                     $('#game').show();
