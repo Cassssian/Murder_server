@@ -12,204 +12,204 @@
 
     <style>
         body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f0f0;
-        }
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 0;
+        padding: 20px;
+        background-color: #f0f0f0;
+    }
 
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        h1, h2, h3 {
-            color: #333;
-        }
-        input, button {
-            margin: 10px 0;
-            padding: 10px;
-            width: 100%;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        li {
-            margin: 5px 0;
-        }
-        #deathCode {
-            font-size: 24px;
-            font-weight: bold;
-            letter-spacing: 3px;
-            margin: 20px 0;
-            padding: 10px;
-            background-color: #f8f8f8;
-            border-radius: 5px;
-        }
-        #codeInput {
-            font-size: 20px;
-            letter-spacing: 2px;
-            text-align: center;
-            width: 200px;
-            margin: 10px auto;
-            display: block;
-        }
-        .code-entry {
-            margin: 20px 0;
-        }
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2, h3 {
+        color: #333;
+    }
+    input, button {
+        margin: 10px 0;
+        padding: 10px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    button {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+    button:hover {
+        background-color: #45a049;
+    }
+    button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+    ul {
+        list-style-type: none;
+        padding: 0;
+    }
+    li {
+        margin: 5px 0;
+    }
+    #deathCode {
+        font-size: 24px;
+        font-weight: bold;
+        letter-spacing: 3px;
+        margin: 20px 0;
+        padding: 10px;
+        background-color: #f8f8f8;
+        border-radius: 5px;
+    }
+    #codeInput {
+        font-size: 20px;
+        letter-spacing: 2px;
+        text-align: center;
+        width: 200px;
+        margin: 10px auto;
+        display: block;
+    }
+    .code-entry {
+        margin: 20px 0;
+    }
 
-        #chatMessages {
-            background-color: #f4f4f4;
-            padding: 10px;
-            border-radius: 5px;
-        }
+    #chatMessages {
+        background-color: #f4f4f4;
+        padding: 10px;
+        border-radius: 5px;
+    }
 
-        .sent-message {
-            text-align: right;
-            color: green;
-            margin: 5px 0;
-        }
+    .sent-message {
+        text-align: right;
+        color: green;
+        margin: 5px 0;
+    }
 
-        .received-message {
-            text-align: left;
-            color: blue;
-            margin: 5px 0;
-        }
+    .received-message {
+        text-align: left;
+        color: blue;
+        margin: 5px 0;
+    }
 
-        #coupleChat {
-            width: 100%;
-            padding: 5px;
-            margin-top: 10px;
-        }
-        #torchButton {
-            transition: all 0.3s ease;
-        }
+    #coupleChat {
+        width: 100%;
+        padding: 5px;
+        margin-top: 10px;
+    }
+    #torchButton {
+        transition: all 0.3s ease;
+    }
 
-        #torchButton.torch-active {
-            background-color: #ffff00;
-            color: black;
-            box-shadow: 0 0 10px rgba(255,255,0,0.7);
-        }
+    #torchButton.torch-active {
+        background-color: #ffff00;
+        color: black;
+        box-shadow: 0 0 10px rgba(255,255,0,0.7);
+    }
 
-        /* Style du modal */
-        .modal {
-            display: none; /* Masqué par défaut */
-            position: fixed; /* Reste en place */
-            z-index: 1; /* Au-dessus des autres éléments */
-            left: 0;
-            top: 0;
-            width: 100%; /* Largeur complète */
-            height: 100%; /* Hauteur complète */
-            overflow: auto; /* Ajoute un défilement si nécessaire */
-            background-color: rgb(0,0,0); /* Couleur de fond noir */
-            background-color: rgba(0,0,0,0.4); /* Fond noir avec transparence */
-        }
+    /* Style du modal */
+    .modal {
+        display: none; /* Masqué par défaut */
+        position: fixed; /* Reste en place */
+        z-index: 1; /* Au-dessus des autres éléments */
+        left: 0;
+        top: 0;
+        width: 100%; /* Largeur complète */
+        height: 100%; /* Hauteur complète */
+        overflow: auto; /* Ajoute un défilement si nécessaire */
+        background-color: rgb(0,0,0); /* Couleur de fond noir */
+        background-color: rgba(0,0,0,0.4); /* Fond noir avec transparence */
+    }
 
-        /* Contenu du modal */
-        .modal-content {
-            background-color: #fefefe;
-            margin: 15% auto; /* 15% du haut et centré */
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%; /* Largeur de 80% */
-        }
+    /* Contenu du modal */
+    .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto; /* 15% du haut et centré */
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Largeur de 80% */
+    }
 
-        /* Bouton de fermeture */
-        .close-button {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
+    /* Bouton de fermeture */
+    .close-button {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
 
-        .close-button:hover,
-        .close-button:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
+    .close-button:hover,
+    .close-button:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
 
-        .button-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh; /* Prend toute la hauteur de la fenêtre */
-        }
+    .button-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh; /* Prend toute la hauteur de la fenêtre */
+    }
 
+    .styled-button {
+        background-color: #f30002; /* Utilisez la même couleur que l'autre bouton */
+        color: #ffffff; /* Couleur du texte */
+        border: none;
+        padding: 15px 30px; /* Ajustez le padding selon vos besoins */
+        font-size: 16px; /* Taille de la police */
+        cursor: pointer;
+        border-radius: 5px; /* Coins arrondis */
+        transition: background-color 0.3s ease; /* Animation de transition */
+    }
+
+    .styled-button:hover {
+        background-color: #d20000; /* Couleur au survol */
+    }
+
+    /* Styles pour mobile */
+    @media (max-width: 600px) {
         .styled-button {
-            background-color: #f30002; /* Utilisez la même couleur que l'autre bouton */
-            color: #ffffff; /* Couleur du texte */
-            border: none;
-            padding: 15px 30px; /* Ajustez le padding selon vos besoins */
-            font-size: 16px; /* Taille de la police */
-            cursor: pointer;
-            border-radius: 5px; /* Coins arrondis */
-            transition: background-color 0.3s ease; /* Animation de transition */
+            font-size: 14px; /* Réduire la taille de la police sur mobile */
+            padding: 10px 20px; /* Ajuster le padding sur mobile */
         }
+    }
 
-        .styled-button:hover {
-            background-color: #d20000; /* Couleur au survol */
-        }
+    /* Styles pour le header en dégradé */
+    .gradient-header {
+        position: relative; /* Nécessaire pour le positionnement du pseudo-élément */
+        background: linear-gradient(to right, #800000, #4B0000, #660000, #8B0000, #000080, #000033, #002147, #1B0030);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent; /* Pour le texte */
+        color: transparent; /* Valeur de secours */
+    }
 
-        /* Styles pour mobile */
-        @media (max-width: 600px) {
-            .styled-button {
-                font-size: 14px; /* Réduire la taille de la police sur mobile */
-                padding: 10px 20px; /* Ajuster le padding sur mobile */
-            }
-        }
+    .gradient-header::after {
+        content: ''; /* Nécessaire pour afficher le pseudo-élément */
+        position: absolute; /* Positionnement absolu par rapport à l'élément parent */
+        left: 0; /* Aligner à gauche */
+        bottom: -2px; /* Positionner légèrement en dessous du texte */
+        height: 6px; /* Augmentez la hauteur de la ligne de soulignement */
+        width: 100%; /* Largeur complète */
+        background: linear-gradient(to right, #800000, #4B0000, #660000, #8B0000, #000080, #000033, #002147, #1B0030); /* Même dégradé que le texte */
+        z-index: -1; /* Envoyer derrière le texte */
+    }
 
-        /* Styles pour le header en dégradé */
-        .gradient-header {
-            position: relative; /* Nécessaire pour le positionnement du pseudo-élément */
-            background: linear-gradient(to right, #800000, #4B0000, #660000, #8B0000, #000080, #000033, #002147, #1B0030);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent; /* Pour le texte */
-            color: transparent; /* Valeur de secours */
-        }
+    .gradient-title {
+        background: linear-gradient(to right, #4B0000, #800000, #A00000, #E60000, #FF0000);
+        background-clip: text; /* Propriété standard */
+        -webkit-background-clip: text; /* Préfixe pour les navigateurs basés sur WebKit */
+        -webkit-text-fill-color: transparent; /* Préfixe pour les navigateurs basés sur WebKit */
+        color: transparent; /* Valeur de secours pour les navigateurs qui ne supportent pas background-clip */
+    }
 
-        .gradient-header::after {
-            content: ''; /* Nécessaire pour afficher le pseudo-élément */
-            position: absolute; /* Positionnement absolu par rapport à l'élément parent */
-            left: 0; /* Aligner à gauche */
-            bottom: -2px; /* Positionner légèrement en dessous du texte */
-            height: 6px; /* Augmentez la hauteur de la ligne de soulignement */
-            width: 100%; /* Largeur complète */
-            background: linear-gradient(to right, #800000, #4B0000, #660000, #8B0000, #000080, #000033, #002147, #1B0030); /* Même dégradé que le texte */
-            z-index: -1; /* Envoyer derrière le texte */
-        }
-
-        .gradient-title {
-            background: linear-gradient(to right, #4B0000, #800000, #A00000, #E60000, #FF0000);
-            background-clip: text; /* Propriété standard */
-            -webkit-background-clip: text; /* Préfixe pour les navigateurs basés sur WebKit */
-            -webkit-text-fill-color: transparent; /* Préfixe pour les navigateurs basés sur WebKit */
-            color: transparent; /* Valeur de secours pour les navigateurs qui ne supportent pas background-clip */
-        }
-
-        #deathCode {
-            user-select: none;
-        }
+    #deathCode {
+        user-select: none;
+    }
     </style>
 
 </head>
@@ -629,9 +629,9 @@
                 }
             }
         });
-        
-        
-         // Modifier la fonction startGame pour initialiser la communication du couple
+
+
+            // Modifier la fonction startGame pour initialiser la communication du couple
         function startGame() {
             $.ajax({
                 url: '/start_game',
@@ -864,6 +864,12 @@
                     readyPlayers = data.ready_players;
                     deadPlayers = data.dead_players;
                     $('#playerList').empty();
+                    const boutonPret = document.getElementById('readyButtonx');
+                    if (players.length < 4) {
+                        $('#readyButton').prop('disabled', true);
+                    } else {
+                        $('#readyButton').prop('disabled', readyPlayers.includes(playerName));
+                    }
                     players.forEach(player => {
                         const readyStatus = readyPlayers.includes(player) ? ' (Prêt)' : '';
                         $('#playerList').append(`<li>${player}${readyStatus}</li>`);
@@ -962,7 +968,7 @@
         $('#codeInput').on('input', function() {
             this.value = this.value.toUpperCase();
         });
-    
+
         let text = "Murder Mystery";
         let index = 0;
         let forward = true;
@@ -987,8 +993,8 @@
         }
 
         setInterval(updateTitle, interval);
-
     </script>
+    
 </body>
 
 </html>
