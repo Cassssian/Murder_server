@@ -46,6 +46,7 @@ from flask_socketio import SocketIO
 import socket
 import random
 import time
+import os
 
 
 
@@ -291,7 +292,6 @@ def assign_roles(players):
     # Le reste des joueurs sont des civils
     for player in available_players:
         roles[player] = "Civil"
-    print(roles)
     return roles
 
 
@@ -321,5 +321,10 @@ if __name__ == '__main__':
     local_ip = socket.gethostbyname(hostname)
 
     print(f"Le serveur est en cours d'exécution sur : http://{local_ip}:{5000}")
-
-    socketio.run(app, '0.0.0.0', 5000, debug=True)
+    subprocess.Popen(['./ngrok.exe'], stdout=subprocess.PIPE)
+    time.sleep(5)
+    if not os.path.exists(os.path.join(os.path.expanduser("~"), 'AppData', 'Local' , 'ngrok', 'ngrok.yml')):
+        subprocess.Popen(['ngrok', 'config', 'add-authtoken', '2p2PH2tcX0kRsxLmFQAbNOBRFah_DtKFfxa3sSotYbb5sB24'], stdout=subprocess.PIPE)
+    subprocess.Popen(['ngrok', 'http', f'http://{local_ip}:5000', '--url=burro-golden-bird.ngrok-free.app'], stdout=subprocess.PIPE)
+    print(f"Le serveur est en cours d'exécution sur : http://{local_ip}:{5000} pour l'ip local, ou sinon sur https://burro-golden-bird.ngrok-free.app pour le vrai site et oe garçon")
+    socketio.run(app, '0.0.0.0')

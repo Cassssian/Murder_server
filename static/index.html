@@ -1,6 +1,8 @@
+<!-- jsfiddle : https://jsfiddle.net/t408gdkq/ -->
+
 <!DOCTYPE html>
 <html lang="fr">
-    
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <audio id="backgroundMusic" width="0" height="0" src="./Crime Music No CopyrightScary Murder Mystery BG Music No Copyright - Suspense & Mysterious Music.mp3" loop></audio>
-
+    
     <style>
         body {
         font-family: Arial, sans-serif;
@@ -335,7 +337,7 @@
                 <button id="submitCode">Valider</button>
             </div>
 
-            <div id="torchSection">
+            <div id="torchButton" style="display: none;">
                 <button class="switch">Allumer la lampe</button>
             </div>
 
@@ -370,9 +372,28 @@
         let deathCode = '';
         let scannedDeadPlayers = [];  // Pour stocker uniquement les joueurs morts confirmés
         let couplePartner = null;
-        let torchActive = false;
-        let torchStream = null;
         const socket = io();
+        const SUPPORTS_MEDIA_DEVICES = 'mediaDevices' in navigator;
+
+        let torchState = {
+            isActive: false,
+            stream: null,
+            track: null
+        };
+
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && torchState.isActive) {
+                stopTorch();
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (torchState.isActive) {
+                stopTorch();
+            }
+        });
+
 
         $('#welcome').hide();
         $('#game').hide();
@@ -428,107 +449,86 @@
         });
 
         function toggleTorch() {
-            // Vérifier la compatibilité du navigateur
-            if (!('mediaDevices' in navigator) || !('getUserMedia' in navigator.mediaDevices)) {
-                alert('Votre navigateur ne supporte pas la lampe torche');
+            if (!SUPPORTS_MEDIA_DEVICES) {
+                showTorchError('Votre appareil ne supporte pas la lampe torche');
                 return;
             }
 
-            // Si la lampe est déjà active, on l'éteint
-            if (torchActive) {
+            if (torchState.isActive) {
                 stopTorch();
                 return;
             }
 
-            // Demander l'accès à la caméra avec les contraintes pour la lampe torche
             navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: 'environment', // Caméra arrière
-                    advanced: [{
-                        torch: true
-                    }]
+                    facingMode: 'environment',
+                    advanced: [{ torch: true }]
                 }
             }).then(stream => {
-                // Récupérer le track vidéo
                 const track = stream.getVideoTracks()[0];
-                
-                // Vérifier les capacités de la torche
                 const capabilities = track.getCapabilities();
-                
-                // Vérifier si la torche est supportée
+
                 if (!capabilities.torch) {
                     track.stop();
-                    alert('Votre appareil ne supporte pas la lampe torche');
+                    showTorchError('Lampe torche non disponible');
                     return;
                 }
 
-                // Appliquer les contraintes pour allumer la torche
-                return track.applyConstraints({
-                    advanced: [{
-                        torch: true
-                    }]
-                }).then(() => {
-                    // Succès : la torche est allumée
-                    torchActive = true;
-                    torchStream = stream;
-                    $('#torchButton')
-                        .text('Éteindre la lampe')
-                        .addClass('torch-active');
-                    
-                    // Ajouter un effet visuel ou sonore si souhaité
-                    navigator.vibrate(100); // Vibration courte pour confirmer
+                torchState.stream = stream;
+                torchState.track = track;
+                torchState.isActive = true;
+
+                track.applyConstraints({
+                    advanced: [{ torch: true }]
                 });
-            }).catch(error => {
-                // Gestion des différents types d'erreurs
-                console.error('Erreur de la lampe torche:', error);
-                
-                switch(error.name) {
-                    case 'NotAllowedError':
-                        alert('Vous devez autoriser l\'accès à la caméra pour utiliser la lampe torche');
-                        break;
-                    case 'NotFoundError':
-                        alert('Aucune caméra trouvée sur cet appareil');
-                        break;
-                    case 'OverconstrainedError':
-                        alert('Les paramètres de la caméra sont incompatibles');
-                        break;
-                    default:
-                        alert('Impossible d\'allumer la lampe torche');
-                }
-            });
+
+                updateTorchUI(true);
+                navigator.vibrate(100);
+            }).catch(handleTorchError);
         }
 
-        function stopTorch() {
-            // Vérifier si un stream existe
-            if (!torchStream) return;
 
-            // Récupérer le track vidéo
-            const track = torchStream.getVideoTracks()[0];
-            
-            // Essayer d'éteindre la torche
-            track.applyConstraints({
-                advanced: [{
-                    torch: false
-                }]
-            }).then(() => {
-                // Arrêter complètement le track
-                track.stop();
+        function stopTorch() {
+            if (!torchState.track) return;
+
+            try {
+                torchState.track.applyConstraints({
+                    advanced: [{ torch: false }]
+                });
+                torchState.track.stop();
+                torchState.stream.getTracks().forEach(track => track.stop());
                 
-                // Réinitialiser les variables
-                torchStream = null;
-                torchActive = false;
-                
-                // Mettre à jour l'interface
-                $('#torchButton')
-                    .text('Allumer la lampe')
-                    .removeClass('torch-active');
-                
-                // Feedback optionnel
-                navigator.vibrate(50); // Petite vibration
-            }).catch(error => {
-                console.error('Erreur lors de l\'extinction de la lampe:', error);
-                alert('Impossible d\'éteindre la lampe torche');
-            });
+                torchState.isActive = false;
+                torchState.stream = null;
+                torchState.track = null;
+
+                updateTorchUI(false);
+                navigator.vibrate(50);
+            } catch (error) {
+                console.error('Torch shutdown error:', error);
+            }
+        }
+
+        function updateTorchUI(isActive) {
+            const button = document.querySelector('.switch');
+            button.textContent = isActive ? 'Éteindre la lampe' : 'Allumer la lampe';
+            button.classList.toggle('torch-active', isActive);
+        }
+
+        function handleTorchError(error) {
+            console.error('Torch error:', error);
+            const errorMessages = {
+                NotAllowedError: 'Accès refusé à la caméra',
+                NotFoundError: 'Caméra non trouvée',
+                NotReadableError: 'Caméra déjà utilisée',
+                OverconstrainedError: 'Configuration non supportée'
+            };
+            showTorchError(errorMessages[error.name] || 'Erreur lampe torche');
+        }
+
+        function showTorchError(message) {
+            alert(message);
+            updateTorchUI(false);
         }
 
         // Fonction de vérification de compatibilité
@@ -539,25 +539,42 @@
 
         // Initialisation
         $(document).ready(function() {
-            // Vérifier la compatibilité et afficher/cacher le bouton
-            if (!isTorchSupported()) {
-                $('#torchButton').hide();
+
+            // Function to check for available cameras
+            function checkForCameras() {
+                if (!SUPPORTS_MEDIA_DEVICES) {
+                    console.log("Media Devices API not supported");
+                    return Promise.resolve([]); // Return an empty array if not supported
+                }
+
+                return navigator.mediaDevices.enumerateDevices()
+                    .then(devices => devices.filter(device => device.kind === 'videoinput'))
+                    .catch(error => {
+                        return [];
+                    });
             }
 
-            // Gestionnaire d'événement pour le bouton
-            $('#torchButton').on('click', toggleTorch);
-        });
-
-        // Gestion de la perte de focus (pour éteindre la lampe)
-        $(window).on('blur', function() {
-            if (torchActive) {
-                stopTorch();
+            // Function to initialize the torch button
+            function initializeTorchButton(cameras) {
+                if (cameras.length === 0 || !SUPPORTS_MEDIA_DEVICES) {
+                    console.log(SUPPORTS_MEDIA_DEVICES);
+                    $('#torchButton').hide();
+                } else {
+                    console.log("Torch button initialized");
+                    $('#torchButton').show();
+                    $('#torchButton').on('click', toggleTorch);
+                }
             }
+            
+            // Main execution
+            checkForCameras().then(cameras => {
+                initializeTorchButton(cameras);
+            });
         });
-
 
         // Ajouter un gestionnaire d'événements pour le bouton
         $('#torchButton').on('click', toggleTorch);
+
 
         function initCoupleCommunication() {
             // Récupérer le partenaire du couple
@@ -643,7 +660,6 @@
                     $('#countdown').hide();
                     $('#role').text(role);
                     $('#game').show();
-                    $('#torchButton').show();
 
                     // Arrêter la musique
                     const music = document.getElementById('backgroundMusic');
@@ -720,81 +736,7 @@
             }, 1000);
         }
 
-        // -----------------------------------------------------------
-        // -----------------------------------------------------------
-        // -----------------------------------------------------------
-        // -----------------------------------------------------------
-        const consoleOutput = document.getElementById("console");
-        const log = function (msg) {
-        console.log(msg);
-        };
-
-        // Check for media device support
-        if ('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices) {
-        // Enumerate devices to find available cameras
-        navigator.mediaDevices.enumerateDevices().then(devices => {
-            const cameras = devices.filter(device => device.kind === 'videoinput');
-
-            if (cameras.length === 0) {
-            log('No camera found on this device.');
-            return;
-            }
-
-            // Access video stream from environment-facing camera if available
-            navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { ideal: 'environment' } // Prefer back-facing camera
-            }
-            }).then(stream => {
-            const track = stream.getVideoTracks()[0];
-
-            // Check if ImageCapture is supported
-            if ('ImageCapture' in window) {
-                const imageCapture = new ImageCapture(track);
-
-                // Attempt to get camera capabilities, including torch support
-                imageCapture.getPhotoCapabilities().then(capabilities => {
-                const btn = document.querySelector('.switch');
-                const torchSupported = capabilities.torch || 
-                    (capabilities.fillLightMode && capabilities.fillLightMode.includes('flash'));
-
-                if (torchSupported) {
-                    let torch = false;
-                    btn.addEventListener('click', function () {
-                    try {
-                        // Toggle the torch state
-                        track.applyConstraints({
-                        advanced: [{ torch: (torch = !torch) }]
-                        });
-                    } catch (err) {
-                        log(`Torch toggle error: ${err.message}`);
-                    }
-                    });
-                } else {
-                    log("Torch mode is not supported on this device.");
-                }
-                }).catch(err => {
-                log(`Error retrieving photo capabilities: ${err.message}`);
-                });
-            } else {
-                log("ImageCapture API is not supported. Torch control is unavailable.");
-            }
-
-            }).catch(err => {
-            log(`Error accessing video stream: ${err.message}`);
-            });
-        }).catch(err => {
-            log(`Error enumerating devices: ${err.message}`);
-        });
-        } else {
-        log("Media devices or getUserMedia is not supported in this browser.");
-        }
-
-
-        // -----------------------------------------------------------
-        // -----------------------------------------------------------
-        // -----------------------------------------------------------
-        // -----------------------------------------------------------
+        
         function generateDeathCode() {
             const characters = '0123456789AÀÁÂÃÄÅÆBÇCĆČDÈÉÊËEĒĖĘFGHIÌÍÎÏIĪJKLMNOÒÓÕÖØŌŐŒPQRSTUÙÚÛÜŪŰVWXYŸZ,;:!?./§&.É"(-_)=^$*£#{[|@]}';
             let result = '';
