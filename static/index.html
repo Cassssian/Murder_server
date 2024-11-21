@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <audio id="backgroundMusic" width="0" height="0" src="./Crime Music No CopyrightScary Murder Mystery BG Music No Copyright - Suspense & Mysterious Music.mp3" loop></audio>
+    <audio id="endMusic" width="0" height="0" src="./SPOOKTOBER TRUMPET TUNES.mp3" loop></audio>
     
     <style>
         body {
@@ -28,36 +29,46 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
         }
+
         h1, h2, h3 {
             color: #333;
         }
+        
         input, button {
             margin: 10px 0;
             padding: 10px;
             width: 100%;
             box-sizing: border-box;
         }
+        
         button {
             background-color: #4CAF50;
             color: white;
             border: none;
             cursor: pointer;
         }
+        
         button:hover {
             background-color: #45a049;
         }
+        
         button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
+        
         ul {
             list-style-type: none;
             padding: 0;
         }
+        
         li {
             margin: 5px 0;
         }
+        
         #deathCode {
             font-size: 24px;
             font-weight: bold;
@@ -67,6 +78,7 @@
             background-color: #f8f8f8;
             border-radius: 5px;
         }
+
         #codeInput {
             font-size: 20px;
             letter-spacing: 2px;
@@ -75,41 +87,62 @@
             margin: 10px auto;
             display: block;
         }
+
         .code-entry {
             margin: 20px 0;
+        }
+
+        .container:hover {
+            transform: scale(1.02);
         }
 
         #chatMessages {
             background-color: #f4f4f4;
             padding: 10px;
             border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
         }
+
 
         .sent-message {
             text-align: right;
-            color: rgb(100, 44, 100);
+            color: #6a1b9a;
             margin: 5px 0;
-            display: inline-block; /* Permet au message de s'adapter à la largeur */
-            max-width: 80%; /* Limite la largeur maximale des messages */
-            word-wrap: break-word; /* Permet de couper les mots si nécessaire */
-
+            display: inline-block;
+            max-width: 80%;
+            word-wrap: break-word;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: #e1bee7;
         }
 
         .received-message {
             text-align: left;
-            color: rgb(156, 59, 59);
+            color: #c62828;
             margin: 5px 0;
-            display: inline-block; /* Permet au message de s'adapter à la largeur */
-            max-width: 80%; /* Limite la largeur maximale des messages */
-            word-wrap: break-word; /* Permet de couper les mots si nécessaire */
-
+            display: inline-block;
+            max-width: 80%;
+            word-wrap: break-word;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: #ffebee;
         }
 
         #coupleChat {
-            width: 100%;
-            padding: 5px;
+            width: calc(100% - 22px);
+            padding: 10px;
             margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: border-color 0.3s;
         }
+
+        #coupleChat:focus {
+            border-color: #4facfe;
+            outline: none;
+        }
+
         #torchButton {
             transition: all 0.3s ease;
         }
@@ -198,17 +231,6 @@
             color: transparent; /* Valeur de secours */
         }
 
-        .gradient-header::after {
-            content: ''; /* Nécessaire pour afficher le pseudo-élément */
-            position: absolute; /* Positionnement absolu par rapport à l'élément parent */
-            left: 0; /* Aligner à gauche */
-            bottom: -2px; /* Positionner légèrement en dessous du texte */
-            height: 6px; /* Augmentez la hauteur de la ligne de soulignement */
-            width: 100%; /* Largeur complète */
-            background: linear-gradient(to right, #800000, #4B0000, #660000, #8B0000, #000080, #000033, #002147, #1B0030); /* Même dégradé que le texte */
-            z-index: -1; /* Envoyer derrière le texte */
-        }
-
         .gradient-title {
             background: linear-gradient(to right, #4B0000, #800000, #A00000, #E60000, #FF0000);
             background-clip: text; /* Propriété standard */
@@ -231,68 +253,6 @@
         <!-- Bouton pour accéder au jeu -->
         <div id="accessPageButtonContainer" style="text-align: center; margin: 20px 0;">
             <button class="styled-button" onclick="pageAccess()">Accéder au jeu</button>
-        </div>
-
-        <!-- Pop-up Modal -->
-        <div id="rulesModal" class="modal">
-            <div class="modal-content">
-                <span class="close-button">&times;</span>
-
-                <h2 class="gradient-header">Règles du jeu Murder Mystery</h2>
-                <p>
-                    Bienvenue dans Murder Mystery ! Voici comment le jeu fonctionne :
-                </p>
-
-                <h3 class="gradient-header"><u>Objectif du jeu </u></h3>
-                <p>
-                    L'objectif est de découvrir qui est le(s) meurtrier(s) parmi les joueurs. Les joueurs peuvent avoir différents rôles (comme shérif, médecin, caméraman, couple), chacun avec ses propres capacités et objectifs. Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou lorsque le temps est écoulé.
-                </p>
-
-                <h3 class="gradient-header"><u>Règles de base </u></h3>
-                <ul>
-                    <li>Chaque joueur reçoit un rôle secret au début du jeu.</li>
-                    <li>Les joueurs doivent interagir, poser des questions et rassembler des indices.</li>
-                    <li>Les joueurs peuvent "se mettre mort" pour simuler leur mort et créer des mystères.</li>
-                    <li>Les joueurs peuvent vérifier les codes des morts pour confirmer les décès.</li>
-                    <li>Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou que le temps est écoulé.</li>
-                    <li>Lorsque le temps est écoulé, le gagnant est désigné de manière aléatoire</li> 
-                </ul>
-
-                <h3 class="gradient-header"><u>Interdictions et obligations</u></h3>
-                    <li><b><font color="red">Interdiction</font></b> d'utiliser vos vrais noms et prénoms (pour Léo par exemple, il peut utiliser Diego ou pour Axel le nom de son daron <i>(ah bah nan il n'en a pas 🙃)</i>)</li>
-                    <li><b><font color="red">Interdiction</font></b> de rester par groupe de plus de 3 personnes</li>
-                    <li><b><font color="red">Interdiction</font></b> de rester plus de 15 secondes au même endroit</li> 
-                    <li><b><font color="red">Interdiction</font></b> de bouger une fois mis "prêt".</li>    
-                    <li><b><font color="red">Interdiction</font></b> de se mettre à côté d'un joueur avant de lancer une partie.</li>
-                    <li><b><font color="red">Interdiction</font></b> de partager son rôle durant la partie.</li>
-                    <li><b><font color="red">Interdiction</font></b> de se parler par message ailleurs que dans le chat du jeu. (pour le couple)</li>
-                    <li><b><font color="red">Interdiction</font></b> de se mettre dans le même groupe pour les personnes possédant les 2 armes (shérif + personnes qui a trouvé la seconde arme)</li>
-                    <li><b><font color="red">Interdiction</font></b> de dévoiler où se trouve la deuxième arme et d'utiliser l'arme durant la prochaine partie(personne qui l'a caché) </li>
-                    <li><b><font color="red">Interdiction</font></b> de prendre le téléphone d'une autre personne (sauf si elle est morte et pour rentrer le code)</li>
-                    <li><b><font color="red">Interdiction</font></b> de former des alliances (sauf pour le couple)</li>
-                    <li><b><font color="red">Interdiction</font></b> de faire semblant de rentrer le code (si le joueur mort n'a pas encore été mit dans la liste et que le joueur entrant le code est un meurtrier)</li>
-                    <li><b><font color="blue">Obligation</font></b> de garder son téléphone alumé en étant mort pour pouvoir rentrer les codes de mort </li>
-                    <li><b><font color="blue">Obligation</font></b> de rester allongé par terre quand on est mort et de ne pas bouger ni parler par la suite</li>
-                    <li><b><font color="blue">Obligation</font></b> de ne pas parler à une personne morte</li>
-                    
-
-                <h3 class="gradient-header"><u>Comment jouer </u></h3>
-                <p>
-                    1. Entrez votre pseudo et rejoignez le jeu.
-                    <br>
-                    2. Dispersez-vous dans la maison et mettez vous prêts à jouer.
-                    <br>
-                    3. Attendez que tous les joueurs soient prêts.
-                    <br>
-                    4. Suivez les instructions à l'écran et interagissez avec les autres joueurs.
-                    <br>
-                    5. Essayez de découvrir qui est le(s) meurtrier(s) ou tuer tout les innoncents sans vous faire remarquer avant que le temps ne soit écoulé.  
-                </p>
-                <p>
-                    Amusez-vous bien et bonne chance !
-                </p>
-
-            </div>
         </div>
 
         <!-- Page de saisie du pseudo -->
@@ -349,6 +309,10 @@
                 <button class="switch">Allumer la lampe</button>
             </div>
 
+            <div id="coupleSection" style="display: none;">
+                <div id="chatMessages"></div>
+                <input type="text" id="coupleChat" placeholder="Envoyer un message">
+            </div>
 
             <h3>Joueurs morts :</h3>
             <ul id="dead-players-list">
@@ -356,24 +320,89 @@
             </ul>
 
 
-            <div id="coupleSection" style="display: none;">
-                <h3>Chat Couple</h3>
-                <div id="chatMessages"></div>
-                <input type="text" id="coupleChat" placeholder="Envoyer un message">
-            </div>
+            
             
     
             <div id="gameStatus" style="display: none;">
                 <h2>Temps restant : <span id="remainingTime"></span></h2>
             </div>
         </div>
+
+        <div id="gameOver" style="display: none;">
+            <h2 class="gradient-header">Fin du jeu !</h2>
+            <p id="gameOverMessage"></p>
+            <button id="restartButton" class="styled-button" onclick="restartGame()">Rejouer</button>
+        </div>
     </div>
 
+    <!-- Pop-up Modal -->
+    <div id="rulesModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+
+            <h2 class="gradient-header">Règles du jeu Murder Mystery</h2>
+            <p>
+                Bienvenue dans Murder Mystery ! Voici comment le jeu fonctionne :
+            </p>
+
+            <h3 class="gradient-header"><u>Objectif du jeu </u></h3>
+            <p>
+                L'objectif est de découvrir qui est le(s) meurtrier(s) parmi les joueurs. Les joueurs peuvent avoir différents rôles (comme shérif, médecin, caméraman, couple), chacun avec ses propres capacités et objectifs. Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou lorsque le temps est écoulé.
+            </p>
+
+            <h3 class="gradient-header"><u>Règles de base </u></h3>
+            <ul>
+                <li>Chaque joueur reçoit un rôle secret au début du jeu.</li>
+                <li>Les joueurs doivent interagir, poser des questions et rassembler des indices.</li>
+                <li>Les joueurs peuvent "se mettre mort" pour simuler leur mort et créer des mystères.</li>
+                <li>Les joueurs peuvent vérifier les codes des morts pour confirmer les décès.</li>
+                <li>Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou que le temps est écoulé.</li>
+                <li>Lorsque le temps est écoulé, le gagnant est désigné de manière aléatoire</li> 
+            </ul>
+
+            <h3 class="gradient-header"><u>Interdictions et obligations</u></h3>
+                <li><b><font color="red">Interdiction</font></b> d'utiliser vos vrais noms et prénoms (pour Léo par exemple, il peut utiliser Diego ou pour Axel le nom de son daron <i>(ah bah nan il n'en a pas 🙃)</i>)</li>
+                <li><b><font color="red">Interdiction</font></b> de rester par groupe de plus de 3 personnes</li>
+                <li><b><font color="red">Interdiction</font></b> de rester plus de 15 secondes au même endroit</li> 
+                <li><b><font color="red">Interdiction</font></b> de bouger une fois mis "prêt".</li>    
+                <li><b><font color="red">Interdiction</font></b> de se mettre à côté d'un joueur avant de lancer une partie.</li>
+                <li><b><font color="red">Interdiction</font></b> de partager son rôle durant la partie.</li>
+                <li><b><font color="red">Interdiction</font></b> de se parler par message ailleurs que dans le chat du jeu. (pour le couple)</li>
+                <li><b><font color="red">Interdiction</font></b> de se mettre dans le même groupe pour les personnes possédant les 2 armes (shérif + personnes qui a trouvé la seconde arme)</li>
+                <li><b><font color="red">Interdiction</font></b> de dévoiler où se trouve la deuxième arme et d'utiliser l'arme durant la prochaine partie(personne qui l'a caché) </li>
+                <li><b><font color="red">Interdiction</font></b> de prendre le téléphone d'une autre personne (sauf si elle est morte et pour rentrer le code)</li>
+                <li><b><font color="red">Interdiction</font></b> de former des alliances (sauf pour le couple)</li>
+                <li><b><font color="red">Interdiction</font></b> de faire semblant de rentrer le code (si le joueur mort n'a pas encore été mit dans la liste et que le joueur entrant le code est un meurtrier)</li>
+                <li><b><font color="blue">Obligation</font></b> de garder son téléphone alumé en étant mort pour pouvoir rentrer les codes de mort </li>
+                <li><b><font color="blue">Obligation</font></b> de rester allongé par terre quand on est mort et de ne pas bouger ni parler par la suite</li>
+                <li><b><font color="blue">Obligation</font></b> de ne pas parler à une personne morte</li>
+                
+
+            <h3 class="gradient-header"><u>Comment jouer </u></h3>
+            <p>
+                1. Entrez votre pseudo et rejoignez le jeu.
+                <br>
+                2. Dispersez-vous dans la maison et mettez vous prêts à jouer.
+                <br>
+                3. Attendez que tous les joueurs soient prêts.
+                <br>
+                4. Suivez les instructions à l'écran et interagissez avec les autres joueurs.
+                <br>
+                5. Essayez de découvrir qui est le(s) meurtrier(s) ou tuer tout les innoncents sans vous faire remarquer avant que le temps ne soit écoulé.  
+            </p>
+            <p>
+                Amusez-vous bien et bonne chance !
+            </p>
+
+        </div>
+    </div>
+    
     <script>
         let playerName;
         let players  = [];
         let readyPlayers = [];
         let role;
+        let roles = {};
         let deadPlayers = [];
         let isDead = false;
         let gameStarted = false;
@@ -682,6 +711,7 @@
                 contentType: 'application/json', // Ajoutez ceci pour spécifier le type de contenu
                 data: JSON.stringify({ name: playerName }), // Envoyez le nom du joueur
                 success: function(data) {
+                    roles = data
                     role = data.roles[playerName];
                     $('#countdown').hide();
                     $('#coupleSection').hide();
@@ -753,17 +783,19 @@
                 const remainingTime = timeLimit - elapsedTime;
                 $('#remainingTime').text(formatTime(remainingTime));
 
-                // Afficher les rôles pendant les 30 dernières secondes
-                if (remainingTime <= 30) {
+                // Afficher les rôles pendant les 20 dernières secondes
+                if (remainingTime <= 20) {
                     $('#roleDisplay').show();
                 }
 
                 // Si le temps restant est écoulé
                 if (remainingTime <= 0) {
                     clearInterval(timer);
-                    endGame();
+                    endGame("Le temps est écoulé ! Le gagnant est choisi au hasard.");
                 }
+                checkGameEndConditions();
             }, 1000);
+            gameStarted = true;
         }
 
         
@@ -853,6 +885,7 @@
                     if (data.all_ready && !gameStarted) {
                         startCountdown();
                     }
+
                 }
             });
         }
@@ -867,7 +900,6 @@
 
 
         function startCountdown() {
-            gameStarted = true;
             $('#waiting').hide();
             $('#countdown').show();
             let timeLeft = 10;
@@ -880,6 +912,36 @@
                     startGame();
                 }
             }, 1000);
+        }
+
+
+        function checkGameEndConditions() {
+            const murderers = players.filter(p => roles[p] === "Meurtrier");
+            const innocents = players.filter(p => roles[p] !== "Meurtrier");
+
+            const murderersAlive = murderers.filter(p => !deadPlayers.includes(p));
+            const innocentsAlive = innocents.filter(p => !deadPlayers.includes(p));
+
+            console.log(murderers, innocents)
+
+            // Vérifier si tous les meurtriers sont morts
+            if (murderersAlive.length === 0 && gameStarted) {
+                endGame("Les innocents ont gagné en éliminant tous les meurtriers !");
+            }
+
+            // Vérifier si tous les innocents sont morts
+            if (innocentsAlive.length === 0 && gameStarted) {
+                endGame("Les meurtriers ont gagné en éliminant tous les innocents !");
+            }
+        }
+
+
+        function endGame(message) {
+            $('#game').hide()
+            $('#gameOver').show()
+            $('#gameOverMessage').text(message)
+            const endMusic= document.getElementById("endMusic")
+            endMusic.play()
         }
 
 
@@ -965,6 +1027,36 @@
         }
 
         setInterval(updateTitle, interval);
+
+        function restartGame() {
+            const endMusic = document.getElementById("endMusic")
+            endMusic.pause()
+            endMusic.currentTime = 0
+            
+            const music = document.getElementById("backgroundMusic")
+            music.play()
+
+            // Réinitialiser l'état de l'interface utilisateur
+            $('#gameOver').hide();
+            $('#accessPage').show();
+            $('#playerName').val('');
+            
+            // Réinitialiser les variables de jeu si nécessaire
+            players = [];
+            readyPlayers = [];
+            deadPlayers = [];
+            scannedDeadPlayers = [];
+            roles = {};
+            deathCodes = {};
+            gameStarted = false;
+            isDead = false;
+
+            // Optionnel : Réinitialiser le serveur si nécessaire
+            $.ajax({
+                url: '/reset_game', // Vous devrez créer cette route si nécessaire
+                method: 'POST'
+            });
+        }
     </script>
     
 </body>

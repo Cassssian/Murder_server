@@ -305,16 +305,32 @@ def check_winner():
 
     time_elapsed = time.time() > 600
     
-    if not murderers_alive:
+    if not murderers_alive and all(code in scanned_dead_players for code in death_codes.keys()):
         return "Les innocents ont gagné en éliminant tous les meurtriers!"
-    elif not innocents_alive:
+    
+    if not innocents_alive and all(code in scanned_dead_players for code in death_codes.keys()):
         return "Les meurtriers ont gagné en éliminant tous les innocents!"
+    
     elif time_elapsed:
         return f"Le temps est écoulé! Les {random.choice(['innocents', 'meurtriers'])} ont gagné!"
-    else:
-        return "Le jeu continue..."
+    
+    return "Le jeu continue..."
 
 
+@app.route('/reset_game', methods=['POST'])
+def reset_game():
+    global players, ready_players, roles, dead_players, death_codes, scanned_dead_players, game_in_progress
+    
+    # Réinitialiser toutes les variables du jeu
+    game_in_progress = False
+    players = []
+    ready_players = []
+    roles = {}
+    dead_players = []
+    death_codes = {}
+    scanned_dead_players = []
+    
+    return jsonify({'status': 'success'})
 
 
 def ngrok():
@@ -323,7 +339,6 @@ def ngrok():
     if not os.path.exists(os.path.join(os.path.expanduser("~"), 'AppData', 'Local' , 'ngrok', 'ngrok.yml')):
         subprocess.Popen(['ngrok', 'config', 'add-authtoken', '2p2PH2tcX0kRsxLmFQAbNOBRFah_DtKFfxa3sSotYbb5sB24'], stdout=subprocess.PIPE)
     subprocess.Popen(['ngrok', 'http', f'http://{local_ip}:5000', '--url=burro-golden-bird.ngrok-free.app'])
-    print(f"Le serveur est en cours d'exécution sur : http://{local_ip}:{5000} (sans la possibilité d'utiliser la lampe torche) pour l'ip local, ou sinon sur https://burro-golden-bird.ngrok-free.app pour le vrai site et oe garçon")
 
 
 
