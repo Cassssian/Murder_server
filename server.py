@@ -47,6 +47,7 @@ import socket
 import random
 import time
 import os
+import threading
 
 
 
@@ -316,15 +317,22 @@ def check_winner():
 
 
 
+def ngrok():
+    subprocess.Popen(['./ngrok.exe'], stdout=subprocess.PIPE)
+    time.sleep(1)
+    if not os.path.exists(os.path.join(os.path.expanduser("~"), 'AppData', 'Local' , 'ngrok', 'ngrok.yml')):
+        subprocess.Popen(['ngrok', 'config', 'add-authtoken', '2p2PH2tcX0kRsxLmFQAbNOBRFah_DtKFfxa3sSotYbb5sB24'], stdout=subprocess.PIPE)
+    subprocess.Popen(['ngrok', 'http', f'http://{local_ip}:5000', '--url=burro-golden-bird.ngrok-free.app'])
+    print(f"Le serveur est en cours d'exécution sur : http://{local_ip}:{5000} (sans la possibilité d'utiliser la lampe torche) pour l'ip local, ou sinon sur https://burro-golden-bird.ngrok-free.app pour le vrai site et oe garçon")
+
+
+
+
 if __name__ == '__main__':
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
 
-    print(f"Le serveur est en cours d'exécution sur : http://{local_ip}:{5000}")
-    subprocess.Popen(['./ngrok.exe'], stdout=subprocess.PIPE)
-    time.sleep(5)
-    if not os.path.exists(os.path.join(os.path.expanduser("~"), 'AppData', 'Local' , 'ngrok', 'ngrok.yml')):
-        subprocess.Popen(['ngrok', 'config', 'add-authtoken', '2p2PH2tcX0kRsxLmFQAbNOBRFah_DtKFfxa3sSotYbb5sB24'], stdout=subprocess.PIPE)
-    subprocess.Popen(['ngrok', 'http', f'http://{local_ip}:5000', '--url=burro-golden-bird.ngrok-free.app'], stdout=subprocess.PIPE)
-    print(f"Le serveur est en cours d'exécution sur : http://{local_ip}:{5000} pour l'ip local, ou sinon sur https://burro-golden-bird.ngrok-free.app pour le vrai site et oe garçon")
+    ngrok_access = threading.Thread(target=ngrok)
+    ngrok_access.start()
+
     socketio.run(app, '0.0.0.0')
