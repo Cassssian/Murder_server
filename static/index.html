@@ -10,6 +10,9 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
     <audio id="backgroundMusic" width="0" height="0" src="./Crime Music No CopyrightScary Murder Mystery BG Music No Copyright - Suspense & Mysterious Music.mp3" loop></audio>
     <audio id="endMusic" width="0" height="0" src="./SPOOKTOBER TRUMPET TUNES.mp3" loop></audio>
     
@@ -396,6 +399,16 @@
 
         </div>
     </div>
+
+    <div id="resurrect-dialog" title="Résurrection" style="display: none;">
+        <p id="resurrect-message"></p>
+    </div>
+
+    <div id="resurrect-dialog" style="display: none;">
+        <p>Voulez-vous utiliser le saint pouvoir de Joël pour ressusciter un joueur ?</p>
+        <select id="resurrect-select"></select>
+        <button id="resurrect-validate">Valider</button>
+    </div>
     
     <script>
         let playerName;
@@ -406,9 +419,11 @@
         let deadPlayers = [];
         let isDead = false;
         let gameStarted = false;
+        let timeLeft = 10;
         let deathCode = '';
         let scannedDeadPlayers = [];  // Pour stocker uniquement les joueurs morts confirmés
         let couplePartner = null;
+        let countdownInterval;
         const socket = io();
         const SUPPORTS_MEDIA_DEVICES = 'mediaDevices' in navigator;
         let coupleMessages = {}; // Stocker les messages par couple
@@ -779,6 +794,7 @@
             }, roleDisplayDuration * 1000);
 
             const timer = setInterval(function() {
+                console.log(elapsedTime)
                 elapsedTime++;
                 const remainingTime = timeLimit - elapsedTime;
                 $('#remainingTime').text(formatTime(remainingTime));
@@ -793,7 +809,7 @@
                     clearInterval(timer);
                     endGame("Le temps est écoulé ! Le gagnant est choisi au hasard.");
                 }
-                checkGameEndConditions();
+                // checkGameEndConditions();
             }, 1000);
             gameStarted = true;
         }
@@ -902,16 +918,19 @@
         function startCountdown() {
             $('#waiting').hide();
             $('#countdown').show();
-            let timeLeft = 10;
             $('#timer').text(timeLeft);
-            const countdownInterval = setInterval(() => {
+
+            clearInterval(countdownInterval);
+
+            countdownInterval = setInterval(() => {
                 timeLeft--;
+                console.log(timeLeft);
                 $('#timer').text(timeLeft);
                 if (timeLeft <= 0) {
                     clearInterval(countdownInterval);
                     startGame();
                 }
-            }, 1000);
+            }, 500);
         }
 
 
@@ -934,6 +953,40 @@
                 endGame("Les meurtriers ont gagné en éliminant tous les innocents !");
             }
         }
+
+
+        socket.on('cameraman_death_notification', function(data) {
+            const cameramanName = data.name;
+            if (confirm(`${cameramanName} est mort, voulez-vous utiliser le saint pouvoir de Joël ?`)) {
+                // Afficher la liste des joueurs vivants pour la sélection
+                $.ajax({
+                    url: '/get_players',
+                    method: 'GET',
+                    success: function(data) {
+                        const alivePlayers = data.players.filter(player => !deadPlayers.includes(player));
+                        const selectedPlayer = prompt("Sélectionnez un joueur à ressusciter : " + alivePlayers.join(", "));
+                        
+                        if (alivePlayers.includes(selectedPlayer)) {
+                            $.ajax({
+                                url: '/resurrect',
+                                method: 'POST',
+                                contentType: 'application/json',
+                                data: JSON.stringify({ camerman_name: cameramanName, target_name: selectedPlayer }),
+                                success: function(response) {
+                                    if (response.success) {
+                                        alert(`${selectedPlayer} a été ressuscité !`);
+                                    } else {
+                                        alert(`Échec de la résurrection.`);
+                                    }
+                                }
+                            });
+                        } else {
+                            alert("Joueur non valide.");
+                        }
+                    }
+                });
+            }
+        });
 
 
         function endGame(message) {
@@ -1057,6 +1110,69 @@
                 method: 'POST'
             });
         }
+
+        function handle_cameraman_death(cameraman_name) {
+            // Attendre 20 secondes avant d'afficher la notification
+            setTimeout(function() {
+                $('#resurrect-dialog').dialog({
+                    title: 'Saint pouvoir de Joël',
+                    modal: true,
+                    buttons: {
+                        Annuler: function() {
+                            $(this).dialog('close');
+                        }
+                    }
+                });
+
+                // Récupérer la liste des joueurs vivants pour remplir la liste déroulante
+                $.ajax({
+                    url: '/get_players',
+                    method: 'GET',
+                    success: function(data) {
+                        const alivePlayers = data.players.filter(player => !deadPlayers.includes(player));
+                        updateResurrectDialog(alivePlayers); // Met à jour la liste déroulante
+                    }
+                });
+            }, 20000); // 20 secondes
+        }
+
+        // Remplacez les alertes par des messages dans le dialogue
+        function resurrectPlayerSuccess(selectedPlayer) {
+            $('#resurrect-message').text(`${selectedPlayer} a été ressuscité !`);
+            $('#resurrect-dialog').dialog('open');
+        }
+
+        function resurrectPlayerFailure() {
+            $('#resurrect-message').text(`Échec de la résurrection.`);
+            $('#resurrect-dialog').dialog('open');
+        }
+
+        // Événement pour le bouton de validation
+        $('#resurrect-validate').click(function() {
+            const selectedPlayer = $('#resurrect-select').val();
+            if (selectedPlayer) {
+                const data = {
+                    camerman_name: playerName,
+                    target_name: selectedPlayer
+                };
+                $.ajax({
+                    url: '/resurrect',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(response) {
+                        if (response.success) {
+                            resurrectPlayerSuccess(selectedPlayer);
+                        } else {
+                            resurrectPlayerFailure();
+                        }
+                        $('#resurrect-dialog').dialog('close');
+                    }
+                });
+            }
+        });
+
+
     </script>
     
 </body>

@@ -209,7 +209,30 @@ def set_dead():
     if player_name not in dead_players:
         dead_players.append(player_name)
         death_codes[death_code] = player_name
+
+        # Vérifiez si le joueur mort est le Caméraman
+        if roles.get(player_name) == "Caméraman":
+            handle_cameraman_death(player_name)  # Appeler la nouvelle fonction
+        
+
     return jsonify({'success': True})
+
+
+@app.route('/resurrect', methods=['POST'])
+def resurrect():
+    data = request.get_json()
+    camerman_name = data.get('camerman_name')
+    target_name = data.get('target_name')
+
+    if target_name in dead_players:
+        dead_players.remove(target_name)
+        socketio.emit('update_dead_players', {'dead_players': dead_players})  # Mettre à jour la liste des morts
+        # Vérifiez si le Caméraman devient démoniaque
+        if roles.get(target_name) == "Meurtrier":
+            roles[camerman_name] = "Caméraman (Démoniaque)"
+        return jsonify({'success': True})
+
+    return jsonify({'success': False})
 
 
 @app.route('/verify_dead', methods=['POST'])
@@ -255,34 +278,34 @@ def assign_roles(players):
     # Copier la liste des joueurs
     available_players = players.copy()
     
-    # Assigner les meurtriers (2 joueurs si possible)
-    murderer_count = min(2, len(players) // 4)
+    # # Assigner les meurtriers (2 joueurs si possible)
+    # murderer_count = min(2, len(players) // 4)
 
-    for _ in range(murderer_count):
-        murderer = random.choice(available_players)
-        roles[murderer] = "Meurtrier"
-        available_players.remove(murderer)
+    # for _ in range(murderer_count):
+    #     murderer = random.choice(available_players)
+    #     roles[murderer] = "Meurtrier"
+    #     available_players.remove(murderer)
     
-    # Assigner le couple
-    if len(available_players) >= 2:
-        couple_member1 = random.choice(available_players)
-        available_players.remove(couple_member1)
-        couple_member2 = random.choice(available_players)
-        available_players.remove(couple_member2)
-        roles[couple_member1] = "Couple"
-        roles[couple_member2] = "Couple"
+    # # Assigner le couple
+    # if len(available_players) >= 2:
+    #     couple_member1 = random.choice(available_players)
+    #     available_players.remove(couple_member1)
+    #     couple_member2 = random.choice(available_players)
+    #     available_players.remove(couple_member2)
+    #     roles[couple_member1] = "Couple"
+    #     roles[couple_member2] = "Couple"
     
-    # Assigner le détective
-    if available_players:
-        detective = random.choice(available_players)
-        roles[detective] = "Détective"
-        available_players.remove(detective)
+    # # Assigner le détective
+    # if available_players:
+    #     detective = random.choice(available_players)
+    #     roles[detective] = "Détective"
+    #     available_players.remove(detective)
     
-    # Assigner le médecin
-    if available_players:
-        medic = random.choice(available_players)
-        roles[medic] = "Médecin"
-        available_players.remove(medic)
+    # # Assigner le médecin
+    # if available_players:
+    #     medic = random.choice(available_players)
+    #     roles[medic] = "Médecin"
+    #     available_players.remove(medic)
     
     # Assigner le caméraman
     if available_players:
@@ -294,6 +317,16 @@ def assign_roles(players):
     for player in available_players:
         roles[player] = "Civil"
     return roles
+
+
+def handle_cameraman_death(cameraman_name):
+    # Attendre 20 secondes avant d'envoyer la notification
+    threading.Timer(20, notify_cameraman_death, [cameraman_name]).start()
+
+
+def notify_cameraman_death(cameraman_name):
+    # Émettre un événement pour notifier tous les joueurs
+    socketio.emit('cameraman_death_notification', {'name': cameraman_name})
 
 
 def check_winner():
@@ -337,8 +370,8 @@ def ngrok():
     subprocess.Popen(['./ngrok.exe'], stdout=subprocess.PIPE)
     time.sleep(1)
     if not os.path.exists(os.path.join(os.path.expanduser("~"), 'AppData', 'Local' , 'ngrok', 'ngrok.yml')):
-        subprocess.Popen(['ngrok', 'config', 'add-authtoken', '2p2PH2tcX0kRsxLmFQAbNOBRFah_DtKFfxa3sSotYbb5sB24'], stdout=subprocess.PIPE)
-    subprocess.Popen(['ngrok', 'http', f'http://{local_ip}:5000', '--url=burro-golden-bird.ngrok-free.app'])
+        subprocess.Popen(['ngrok', 'config', 'add-authtoken', '2pCUFvSe9CHgq5dZk11ajfy5Tql_3J3B2sqieZMeisMQ4HoBs'], stdout=subprocess.PIPE)
+    subprocess.Popen(['ngrok', 'http', f'http://{local_ip}:5000', '--url=jawfish-correct-weekly.ngrok-free.app'])
 
 
 
@@ -347,7 +380,9 @@ if __name__ == '__main__':
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
 
-    ngrok_access = threading.Thread(target=ngrok)
-    ngrok_access.start()
+
+    print(f"Local IP: http://{local_ip}:5000")
+    # ngrok_access = threading.Thread(target=ngrok)
+    # ngrok_access.start()
 
     socketio.run(app, '0.0.0.0')
