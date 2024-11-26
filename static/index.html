@@ -400,16 +400,19 @@
         </div>
     </div>
 
-    <div id="resurrect-dialog" title="Résurrection" style="display: none;">
-        <p id="resurrect-message"></p>
-    </div>
+        <!-- Pop-up Modal pour la résurrection -->
+        <div id="resurrectModal" class="modal">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeResurrectModal()">&times;</span>
+                <h2 class="gradient-header">Saint pouvoir de Joël</h2>
+                <p id="resurrect-message"></p>
+                <select id="resurrect-select" style="width: 100%; padding: 10px; margin: 10px 0;"></select>
+                <button id="resurrect-validate" class="styled-button">Valider</button>
+            </div>
+        </div>
 
-    <div id="resurrect-dialog" style="display: none;">
-        <p>Voulez-vous utiliser le saint pouvoir de Joël pour ressusciter un joueur ?</p>
-        <select id="resurrect-select"></select>
-        <button id="resurrect-validate">Valider</button>
-    </div>
-    
+
+        
     <script>
         let playerName;
         let players  = [];
@@ -1112,61 +1115,52 @@
         }
 
         function handle_cameraman_death(cameraman_name) {
-            // Attendre 20 secondes avant d'afficher la notification
             setTimeout(function() {
-                $('#resurrect-dialog').dialog({
-                    title: 'Saint pouvoir de Joël',
-                    modal: true,
-                    buttons: {
-                        Annuler: function() {
-                            $(this).dialog('close');
-                        }
-                    }
-                });
-
-                // Récupérer la liste des joueurs vivants pour remplir la liste déroulante
+                $('#resurrect-message').text(`${cameraman_name} est mort, voulez-vous utiliser le saint pouvoir de Joël ?`);
+                
                 $.ajax({
                     url: '/get_players',
                     method: 'GET',
                     success: function(data) {
                         const alivePlayers = data.players.filter(player => !deadPlayers.includes(player));
-                        updateResurrectDialog(alivePlayers); // Met à jour la liste déroulante
+                        updateResurrectDialog(alivePlayers);
+                        $('#resurrectModal').show();
                     }
                 });
-            }, 20000); // 20 secondes
+            }, 20000);
         }
 
-        // Remplacez les alertes par des messages dans le dialogue
-        function resurrectPlayerSuccess(selectedPlayer) {
-            $('#resurrect-message').text(`${selectedPlayer} a été ressuscité !`);
-            $('#resurrect-dialog').dialog('open');
+        function closeResurrectModal() {
+           $('#resurrectModal').hide();
         }
 
-        function resurrectPlayerFailure() {
-            $('#resurrect-message').text(`Échec de la résurrection.`);
-            $('#resurrect-dialog').dialog('open');
+        // Met à jour la liste déroulante dans le modal
+        function updateResurrectDialog(alivePlayers) {
+            const select = $('#resurrect-select');
+            select.empty();
+            alivePlayers.forEach(player => {
+                select.append(new Option(player, player));
+            });
         }
 
-        // Événement pour le bouton de validation
         $('#resurrect-validate').click(function() {
             const selectedPlayer = $('#resurrect-select').val();
             if (selectedPlayer) {
-                const data = {
-                    camerman_name: playerName,
-                    target_name: selectedPlayer
-                };
                 $.ajax({
                     url: '/resurrect',
                     method: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify(data),
+                    data: JSON.stringify({
+                        camerman_name: playerName,
+                        target_name: selectedPlayer
+                    }),
                     success: function(response) {
                         if (response.success) {
-                            resurrectPlayerSuccess(selectedPlayer);
+                            $('#resurrect-message').text(`${selectedPlayer} a été ressuscité !`);
+                            setTimeout(() => closeResurrectModal(), 2000);
                         } else {
-                            resurrectPlayerFailure();
+                            $('#resurrect-message').text(`Échec de la résurrection.`);
                         }
-                        $('#resurrect-dialog').dialog('close');
                     }
                 });
             }
