@@ -245,6 +245,25 @@
         #deathCode {
             user-select: none;
         }
+
+        .popup {
+            display: none; /* Caché par défaut */
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(155,0,0);
+            background-color: rgba(88,39,0.4); /* Couleur de fond avec transparence */
+        }
+
+        .popup-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+        }
+
     </style>
 
 </head>
@@ -400,17 +419,23 @@
         </div>
     </div>
 
-        <!-- Pop-up Modal pour la résurrection -->
-        <div id="resurrectModal" class="modal">
-            <div class="modal-content">
-                <span class="close-button" onclick="closeResurrectModal()">&times;</span>
-                <h2 class="gradient-header">Saint pouvoir de Joël</h2>
-                <p id="resurrect-message"></p>
-                <select id="resurrect-select" style="width: 100%; padding: 10px; margin: 10px 0;"></select>
-                <button id="resurrect-validate" class="styled-button">Valider</button>
-            </div>
+    <div id="resurrect-popup" class="popup">
+        <div class="popup-content">
+            <h2>Résurrection du Caméraman</h2>
+            <p>Voulez-vous faire revivre le caméraman ?</p>
+            <button id="yes-resurrect">Oui</button>
+            <button id="no-resurrect">Non</button>
         </div>
+    </div>
 
+    <div id="player-selection-popup" class="popup">
+        <div class="popup-content">
+            <h2>Sélectionnez un joueur</h2>
+            <ul id="player-list"></ul>
+            <button id="confirm-selection">Confirmer</button>
+            <button id="cancel-selection">Annuler</button>
+        </div>
+    </div>
 
         
     <script>
@@ -958,38 +983,38 @@
         }
 
 
-        socket.on('cameraman_death_notification', function(data) {
-            const cameramanName = data.name;
-            if (confirm(`${cameramanName} est mort, voulez-vous utiliser le saint pouvoir de Joël ?`)) {
-                // Afficher la liste des joueurs vivants pour la sélection
-                $.ajax({
-                    url: '/get_players',
-                    method: 'GET',
-                    success: function(data) {
-                        const alivePlayers = data.players.filter(player => !deadPlayers.includes(player));
-                        const selectedPlayer = prompt("Sélectionnez un joueur à ressusciter : " + alivePlayers.join(", "));
+        // socket.on('cameraman_death_notification', function(data) {
+        //     const cameramanName = data.name;
+        //     if (confirm(`${cameramanName} est mort, voulez-vous utiliser le saint pouvoir de Joël ?`)) {
+        //         // Afficher la liste des joueurs vivants pour la sélection
+        //         $.ajax({
+        //             url: '/get_players',
+        //             method: 'GET',
+        //             success: function(data) {
+        //                 const alivePlayers = data.players.filter(player => !deadPlayers.includes(player));
+        //                 const selectedPlayer = prompt("Sélectionnez un joueur à ressusciter : " + alivePlayers.join(", "));
                         
-                        if (alivePlayers.includes(selectedPlayer)) {
-                            $.ajax({
-                                url: '/resurrect',
-                                method: 'POST',
-                                contentType: 'application/json',
-                                data: JSON.stringify({ camerman_name: cameramanName, target_name: selectedPlayer }),
-                                success: function(response) {
-                                    if (response.success) {
-                                        alert(`${selectedPlayer} a été ressuscité !`);
-                                    } else {
-                                        alert(`Échec de la résurrection.`);
-                                    }
-                                }
-                            });
-                        } else {
-                            alert("Joueur non valide.");
-                        }
-                    }
-                });
-            }
-        });
+        //                 if (alivePlayers.includes(selectedPlayer)) {
+        //                     $.ajax({
+        //                         url: '/resurrect',
+        //                         method: 'POST',
+        //                         contentType: 'application/json',
+        //                         data: JSON.stringify({ camerman_name: cameramanName, target_name: selectedPlayer }),
+        //                         success: function(response) {
+        //                             if (response.success) {
+        //                                 alert(`${selectedPlayer} a été ressuscité !`);
+        //                             } else {
+        //                                 alert(`Échec de la résurrection.`);
+        //                             }
+        //                         }
+        //                     });
+        //                 } else {
+        //                     alert("Joueur non valide.");
+        //                 }
+        //             }
+        //         });
+        //     }
+        // });
 
 
         function endGame(message) {
@@ -1114,58 +1139,64 @@
             });
         }
 
-        function handle_cameraman_death(cameraman_name) {
-            setTimeout(function() {
-                $('#resurrect-message').text(`${cameraman_name} est mort, voulez-vous utiliser le saint pouvoir de Joël ?`);
-                
-                $.ajax({
-                    url: '/get_players',
-                    method: 'GET',
-                    success: function(data) {
-                        const alivePlayers = data.players.filter(player => !deadPlayers.includes(player));
-                        updateResurrectDialog(alivePlayers);
-                        $('#resurrectModal').show();
-                    }
+        socket.on('cameraman_death_notification',
+        function showResurrectPopup() {
+            document.getElementById("resurrect-popup").style.display = "block";
+        });
+
+        document.getElementById("yes-resurrect").addEventListener("click", function() {
+            // Ici, vous pouvez envoyer une requête pour obtenir la liste des joueurs
+            fetch('/get_players')
+                .then(response => response.json())
+                .then(data => {
+                    showPlayerSelection(data.players);
                 });
-            }, 20000);
+        });
+
+        document.getElementById("no-resurrect").addEventListener("click", function() {
+            document.getElementById("resurrect-popup").style.display = "none";
+        });
+
+
+        function showPlayerSelection(players) {
+            const playerList = document.getElementById("player-list");
+            playerList.innerHTML = ""; // Réinitialiser la liste
+
+            players.forEach(player => {
+                const li = document.createElement("li");
+                li.textContent = player;
+                li.addEventListener("click", function() {
+                    // Gérer la sélection du joueur
+                    confirmResurrection(player);
+                });
+                playerList.appendChild(li);
+            });
+
+            document.getElementById("player-selection-popup").style.display = "block";
         }
 
-        function closeResurrectModal() {
-           $('#resurrectModal').hide();
-        }
-
-        // Met à jour la liste déroulante dans le modal
-        function updateResurrectDialog(alivePlayers) {
-            const select = $('#resurrect-select');
-            select.empty();
-            alivePlayers.forEach(player => {
-                select.append(new Option(player, player));
+        function confirmResurrection(selectedPlayer) {
+            // Ici, vous pouvez envoyer une requête pour faire revivre le caméraman
+            const camermanName = "NomDuCameraman"; // Remplacez par le nom du caméraman
+            fetch('/resurrect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ camerman_name: camermanName, target_name: selectedPlayer })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Gérer la réponse ici
+                alert(data.success ? "Le caméraman a été ressuscité." : "Échec de la résurrection.");
+                document.getElementById("player-selection-popup").style.display = "none";
             });
         }
 
-        $('#resurrect-validate').click(function() {
-            const selectedPlayer = $('#resurrect-select').val();
-            if (selectedPlayer) {
-                $.ajax({
-                    url: '/resurrect',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({
-                        camerman_name: playerName,
-                        target_name: selectedPlayer
-                    }),
-                    success: function(response) {
-                        if (response.success) {
-                            $('#resurrect-message').text(`${selectedPlayer} a été ressuscité !`);
-                            setTimeout(() => closeResurrectModal(), 2000);
-                        } else {
-                            $('#resurrect-message').text(`Échec de la résurrection.`);
-                        }
-                    }
-                });
-            }
+        // Gérer l'annulation
+        document.getElementById("cancel-selection").addEventListener("click", function() {
+            document.getElementById("player-selection-popup").style.display = "none";
         });
-
 
     </script>
     
