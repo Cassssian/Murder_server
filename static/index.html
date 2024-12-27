@@ -395,7 +395,9 @@
                 <li><b><font color="red">Interdiction</font></b> de prendre le téléphone d'une autre personne (sauf si elle est morte et pour rentrer le code)</li>
                 <li><b><font color="red">Interdiction</font></b> de former des alliances (sauf pour le couple)</li>
                 <li><b><font color="red">Interdiction</font></b> de faire semblant de rentrer le code (si le joueur mort n'a pas encore été mit dans la liste et que le joueur entrant le code est un meurtrier)</li>
-                <li><b><font color="blue">Obligation</font></b> de garder son téléphone alumé en étant mort pour pouvoir rentrer les codes de mort </li>
+                <li><b><font color="red">Interdiction</font></b> de parler de la mort d'un joueur (sauf si son code a été scanné)</li>
+                <li><b><font color="red">Interdiction</font></b> de demander le pseudo d'une personne</li>
+                <li><b><font color="blue">Obligation</font></b> de garder son téléphone allumé en étant mort pour pouvoir rentrer les codes de mort </li>
                 <li><b><font color="blue">Obligation</font></b> de rester allongé par terre quand on est mort et de ne pas bouger ni parler par la suite</li>
                 <li><b><font color="blue">Obligation</font></b> de ne pas parler à une personne morte</li>
                 
@@ -461,6 +463,10 @@
             track: null
         };
         let messageshown = false;
+        let text = "Murder Mystery";
+        let index = 0;
+        let forward = true;
+        let interval = 200;  // Vitesse de l'animation (en millisecondes)
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && torchState.isActive) {
@@ -666,6 +672,7 @@
         // -------------------------------------------------
 
         // ----------------------------------------
+        
         function initCoupleCommunication() {
             // Récupérer le partenaire du couple
             $.ajax({
@@ -1083,11 +1090,6 @@
         $('#codeInput').on('input', function() {
             this.value = this.value.toUpperCase();
         });
-
-        let text = "Murder Mystery";
-        let index = 0;
-        let forward = true;
-        let interval = 200;  // Vitesse de l'animation (en millisecondes)
 
         function updateTitle() {
         if (forward) {
