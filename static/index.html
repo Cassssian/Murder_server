@@ -11,7 +11,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
     <audio id="backgroundMusic" width="0" height="0" src="./Crime Music No CopyrightScary Murder Mystery BG Music No Copyright - Suspense & Mysterious Music.mp3" loop></audio>
     <audio id="endMusic" width="0" height="0" src="./SPOOKTOBER TRUMPET TUNES.mp3" loop></audio>
@@ -264,6 +263,169 @@
             margin: 15% auto;
         }
 
+        .custom-popup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+        }
+
+        .popup-content {
+            background: white;
+            width: 80%;
+            max-width: 500px;
+            margin: 20% auto;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .dark-theme {
+            background-color: #300;
+            color: #fff;
+        }
+
+        @keyframes skyGradient {
+            0% { 
+                background-image: linear-gradient(45deg, #87CEEB, #4682B4);
+                font-size: 16px;
+            }
+            25% { 
+                background-image: linear-gradient(45deg, #4682B4, #1E90FF);
+                font-size: 20px;
+            }
+            50% { 
+                background-image: linear-gradient(45deg, #1E90FF, #00BFFF);
+                font-size: 16px;
+            }
+            75% { 
+                background-image: linear-gradient(45deg, #00BFFF, #87CEEB);
+                font-size: 12px;
+            }
+            100% { 
+                background-image: linear-gradient(45deg, #87CEEB, #4682B4);
+                font-size: 16px;
+            }
+        }
+
+        .joel-text {
+            display: inline-block;
+            background-image: linear-gradient(45deg, #87CEEB, #4682B4);
+            background-size: 100%;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: skyGradient 4s infinite;
+            font-weight: bold;
+        }
+
+        .ratio-bar {
+            width: 100%;
+            height: 30px;
+            display: flex;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .innocent-ratio {
+            background-color: #0066cc;
+            height: 100%;
+            transition: width 0.5s;
+        }
+
+        .murderer-ratio {
+            background-color: #cc0000;
+            height: 100%;
+            transition: width 0.5s;
+        }
+
+        .game-entry {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f5f5f5;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .game-entry:hover {
+            background: #e0e0e0;
+        }
+
+        .players-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .players-table td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        .player-innocent {
+            color: #0066cc;
+        }
+
+        .player-murderer {
+            color: #cc0000;
+        }
+
+        .player-dead {
+            text-decoration: line-through;
+        }
+
+        .player-winner {
+            font-weight: bold;
+        }
+
+        .timeline-entry {
+            padding: 5px;
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .timeline-time {
+            width: 60px;
+            color: #666;
+        }
+
+        .close-popup {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-popup:hover,
+        .close-popup:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        #show-stats {
+            max-width: 600px;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            background: linear-gradient(45deg, #ff0000, #0000ff);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: none;
+
+        }
+
+
     </style>
 
 </head>
@@ -315,6 +477,27 @@
             <button id="deadButton">Se mettre mort</button>
             <button id="scanButton">Vérifier un mort</button>
 
+            <div id="resurrection-button-container" style="display: none;">
+                <button id="resurrection-button">Résurrection</button>
+                <div id="resurrection-timer"></div>
+            </div>
+            
+            <div id="cameraman-popup" class="custom-popup">
+                <div class="popup-content">
+                    <h3>Résurrection</h3>
+                    <div id="cameraman-popup-content"></div>
+                    <div id="cameraman-popup-buttons"></div>
+                </div>
+            </div>
+            
+            <div id="player-popup" class="custom-popup">
+                <div class="popup-content">
+                    <h3>Saint pouvoir de Joël</h3>
+                    <div id="player-popup-content"></div>
+                    <div id="player-popup-buttons"></div>
+                </div>
+            </div>
+
 
             <div id="deathCodeDisplay" style="display: none;">
                 <p>Votre code de mort :</p>
@@ -354,6 +537,10 @@
             <h2 class="gradient-header">Fin du jeu !</h2>
             <p id="gameOverMessage"></p>
             <button id="restartButton" class="styled-button" onclick="restartGame()">Rejouer</button>
+        </div>
+
+        <div id="stats-button-container">
+            <button id="show-stats" class="styled-button">Statistiques</button>
         </div>
     </div>
 
@@ -397,6 +584,7 @@
                 <li><b><font color="red">Interdiction</font></b> de faire semblant de rentrer le code (si le joueur mort n'a pas encore été mit dans la liste et que le joueur entrant le code est un meurtrier)</li>
                 <li><b><font color="red">Interdiction</font></b> de parler de la mort d'un joueur (sauf si son code a été scanné)</li>
                 <li><b><font color="red">Interdiction</font></b> de demander le pseudo d'une personne</li>
+                <li><b><font color="red">Interdiction</font></b> d'interagir lorsque le popup pour refaire vivre le caméraman s'affiche (pour la personne morte, un autre joueur peut interagir sur le téléphone de la personne vivante)</li> 
                 <li><b><font color="blue">Obligation</font></b> de garder son téléphone allumé en étant mort pour pouvoir rentrer les codes de mort </li>
                 <li><b><font color="blue">Obligation</font></b> de rester allongé par terre quand on est mort et de ne pas bouger ni parler par la suite</li>
                 <li><b><font color="blue">Obligation</font></b> de ne pas parler à une personne morte</li>
@@ -420,22 +608,56 @@
 
         </div>
     </div>
-
-    <div id="resurrect-popup" class="popup">
+    
+    <div id="stats-popup" class="custom-popup">
         <div class="popup-content">
-            <h2>Résurrection du Caméraman</h2>
-            <p>Voulez-vous faire revivre le caméraman ?</p>
-            <button id="yes-resurrect">Oui</button>
-            <button id="no-resurrect">Non</button>
+            <span class="close-popup" onclick="$('#stats-popup').hide()">&times;</span>
+
+            <h2>Classement</h2>
+            <div id="podium"></div>
+            
+            <h3>Ratio Victoires</h3>
+            <div id="win-ratio">
+                <div class="ratio-bar">
+                    <div class="innocent-ratio"></div>
+                    <div class="murderer-ratio"></div>
+                </div>
+            </div>
+            
+            <h3>Dernières Parties</h3>
+            <div id="recent-games"></div>
+            <button id="show-all-games" class="styled-button">Voir tout l'historique</button>
         </div>
     </div>
-
-    <div id="player-selection-popup" class="popup">
+    
+    <div id="game-details-popup" class="custom-popup">
         <div class="popup-content">
-            <h2>Sélectionnez un joueur</h2>
-            <ul id="player-list"></ul>
-            <button id="confirm-selection">Confirmer</button>
-            <button id="cancel-selection">Annuler</button>
+            <span class="close-popup" onclick="$('#game-details-popup').hide()">&times;</span>
+            <div id="game-info"></div>
+            <div id="players-table"></div>
+            <button id="show-timeline" class="styled-button">Voir le déroulement</button>
+        </div>
+    </div>
+    
+    <div id="timeline-popup" class="custom-popup">
+        <div class="popup-content">
+            <span class="close-popup" onclick="$('#timeline-popup').hide()">&times;</span>
+            <div id="timeline-content"></div>
+        </div>
+    </div>
+    
+    <div id="player-actions-popup" class="custom-popup">
+        <div class="popup-content">
+            <span class="close-popup" onclick="$('#player-actions-popup').hide()">&times;</span>
+            <div id="player-actions-content"></div>
+        </div>
+    </div>
+    
+    <div id="error-popup" class="custom-popup">
+        <div class="popup-content">
+            <h3>Erreur</h3>
+            <p>Ce pseudo est déjà pris !</p>
+            <button onclick="$('#error-popup').hide()">OK</button>
         </div>
     </div>
 
@@ -467,6 +689,267 @@
         let index = 0;
         let forward = true;
         let interval = 200;  // Vitesse de l'animation (en millisecondes)
+        let resurrectionTimer;
+        let canResurrect = true;
+        let selectedPlayerName = null;
+        let pendingCameramanName = null;
+        let gameHistory = [];
+        let currentGameDetails = null;
+        
+        //-----------------------------------------
+        const button = document.getElementById('show-stats');
+
+        let gradientStep = 0;
+        let angleStep = 0;
+        let rotationDirection = 1;
+
+        function getGradientColor(step, frequency1, frequency2, frequency3, phase1, phase2, phase3, center, width) {
+            const r = Math.sin(frequency1 * step + phase1) * width + center;
+            const g = Math.sin(frequency2 * step + phase2) * width + center;
+            const b = Math.sin(frequency3 * step + phase3) * width + center;
+            return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+        }
+
+        function changeRotationDirection() {
+            rotationDirection = Math.random() < 0.5 ? 1 : -1;
+            setTimeout(changeRotationDirection, 5000);
+        }
+
+        function updateGradient() {
+            const color1 = getGradientColor(gradientStep, 0.3, 0.3, 0.3, 0, 2, 4, 128, 127);
+            const color2 = getGradientColor(gradientStep, 0.3, 0.3, 0.3, 2, 4, 6, 128, 127);
+
+            // Increment the angle smoothly over time in the chosen direction
+            const currentAngle = (angleStep % 360);
+            angleStep += 0.2 * rotationDirection; // Adjust speed of rotation here
+
+            button.style.background = `linear-gradient(${currentAngle}deg, ${color1}, ${color2})`;
+            gradientStep += 0.02;
+            requestAnimationFrame(updateGradient);
+        }
+
+        changeRotationDirection();
+        updateGradient();
+
+        //-----------------------------------------
+
+        // Stats button handler
+        $('#show-stats').click(function() {
+            $.ajax({
+                url: '/get_stats',
+                method: 'GET',
+                success: function(data) {
+                    displayPodium(data.topPlayers);
+                    displayWinRatio(data.winRatio);
+                    displayRecentGames(data.recentGames);
+                    $('#stats-popup').show();
+                }
+            });
+        });
+
+        function displayPodium(topPlayers) {
+            const podium = $('#podium');
+            podium.empty();
+            
+            const positions = ['🥇', '🥈', '🥉'];
+            topPlayers.forEach((player, index) => {
+                podium.append(`
+                    <div class="podium-place">
+                        ${positions[index]} ${player.name} (${player.wins} victoires)
+                    </div>
+                `);
+            });
+        }
+
+        function displayWinRatio(ratio) {
+            const innocentWidth = (ratio.innocent / (ratio.innocent + ratio.murderer)) * 100;
+            $('.innocent-ratio').css('width', `${innocentWidth}%`);
+            $('.murderer-ratio').css('width', `${100 - innocentWidth}%`);
+        }
+
+        function displayRecentGames(games) {
+            const container = $('#recent-games');
+            container.empty();
+            
+            games.forEach(game => {
+                container.append(`
+                    <div class="game-entry" onclick="showGameDetails(${game.id})">
+                        ${formatGameDuration(game.duration)} - Victoire ${game.winner}
+                    </div>
+                `);
+            });
+        }
+
+        function showGameDetails(gameId) {
+            $.ajax({
+                url: `/game_details/${gameId}`,
+                method: 'GET',
+                success: function(data) {
+                    currentGameDetails = data;
+                    displayGameDetails(data);
+                    $('#game-details-popup').show();
+                }
+            });
+        }
+
+        function displayGameDetails(gameData) {
+            const table = $('<table class="players-table"></table>');
+            
+            // Players row
+            const playersRow = $('<tr></tr>');
+            gameData.players.forEach(player => {
+                const playerClass = getPlayerClasses(player, gameData);
+                playersRow.append(`<td class="${playerClass}">${player.name}</td>`);
+            });
+            table.append(playersRow);
+            
+            // Roles row
+            const rolesRow = $('<tr></tr>');
+            gameData.players.forEach(player => {
+                rolesRow.append(`<td>${player.role}</td>`);
+            });
+            table.append(rolesRow);
+            
+            $('#players-table').empty().append(table);
+            $('#game-info').html(`
+                <h3>Durée: ${formatGameDuration(gameData.duration)}</h3>
+                <h4>Victoire: ${gameData.winner}</h4>
+            `);
+        }
+
+        function showTimeline(gameData) {
+            const timeline = $('#timeline-content');
+            timeline.empty();
+            
+            gameData.actions.forEach(action => {
+                timeline.append(`
+                    <div class="timeline-entry">
+                        <span class="timeline-time">${formatTime(action.time)}</span>
+                        <span class="timeline-emoji">${getActionEmoji(action.type)}</span>
+                        <span class="timeline-text">${formatAction(action)}</span>
+                    </div>
+                `);
+            });
+            
+            $('#timeline-popup').show();
+        }
+
+        function showPlayerActions(playerName) {
+            const actions = currentGameDetails.actions.filter(
+                action => action.player === playerName || action.target === playerName
+            );
+            
+            const content = $('#player-actions-content');
+            content.empty().append(`<h3>Actions de ${playerName}</h3>`);
+            
+            actions.forEach(action => {
+                content.append(`
+                    <div class="timeline-entry">
+                        <span class="timeline-time">${formatTime(action.time)}</span>
+                        <span class="timeline-emoji">${getActionEmoji(action.type)}</span>
+                        <span class="timeline-text">${formatAction(action)}</span>
+                    </div>
+                `);
+            });
+            
+            $('#player-actions-popup').show();
+        }
+
+        function getPlayerClasses(player, gameData) {
+            const classes = [];
+            
+            if (player.role === "Meurtrier" || player.role === "Caméraman (Démoniaque)") {
+                classes.push('player-murderer');
+            } else {
+                classes.push('player-innocent');
+            }
+            
+            if (player.dead) {
+                classes.push('player-dead');
+            }
+            
+            if ((gameData.winner === "Meurtriers" && player.role.includes("Meurtrier")) ||
+                (gameData.winner === "Innocents" && !player.role.includes("Meurtrier"))) {
+                classes.push('player-winner');
+            }
+            
+            return classes.join(' ');
+        }
+
+        function getActionEmoji(actionType) {
+            const emojis = {
+                'death': '💀',
+                'scan': '🔍',
+                'resurrect': '😇',
+                'resurrect_evil': '😈',
+                'game_start': '🎮',
+                'game_end': '🏁'
+            };
+            return emojis[actionType] || '❓';
+        }
+
+        socket.on('game_end', function(data) {
+            $('#game').hide();
+            $('#gameOver').show();
+            $('#gameOverMessage').text(data.winner === 'Innocents' ? 
+                "Les innocents ont gagné !!" : 
+                "Les meurtriers ont gagné !!"
+            );
+            const endMusic = document.getElementById("endMusic");
+            endMusic.play();
+        });
+
+        function endGame(message) {
+            $('#game').hide();
+            $('#gameOver').show();
+            $('#gameOverMessage').text(message);
+            const endMusic = document.getElementById("endMusic");
+            endMusic.play();
+        }
+
+        function checkWinConditions() {
+            $.ajax({
+                url: '/end_game',
+                method: 'POST',
+                success: function(data) {
+                    if (data.message !== "Le jeu continue...") {
+                        endGame(data.message);
+                    }
+                }
+            });
+        }
+
+
+
+
+        function formatAction(action) {
+            switch(action.type) {
+                case 'death':
+                    return `${action.player} est mort`;
+                case 'scan':
+                    return `${action.player} a scanné ${action.target}`;
+                case 'resurrect':
+                    return `${action.player} a ressuscité ${action.target}`;
+                case 'resurrect_evil':
+                    return `${action.player} a ressuscité ${action.target} (démoniaque)`;
+                default:
+                    return action.description || 'Action inconnue';
+            }
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        function formatGameDuration(duration) {
+            const minutes = Math.floor(duration / 60);
+            const seconds = duration % 60;
+            return `${minutes}m${seconds}s`;
+        }
+
+
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && torchState.isActive) {
@@ -681,7 +1164,7 @@
                 contentType: 'application/json',
                 data: JSON.stringify({ name: playerName }),
                 success: function(data) {
-                    console.log('g check sal batard');
+            
                     couplePartner = data.partner;
                     if (couplePartner) {
                         $('#coupleSection').show();
@@ -829,7 +1312,7 @@
             }, roleDisplayDuration * 1000);
 
             const timer = setInterval(function() {
-                console.log(elapsedTime)
+        
                 elapsedTime++;
                 const remainingTime = timeLimit - elapsedTime;
                 $('#remainingTime').text(formatTime(remainingTime));
@@ -839,12 +1322,18 @@
                     $('#roleDisplay').show();
                 }
 
-                // Si le temps restant est écoulé
+                checkWinConditions();
+                
                 if (remainingTime <= 0) {
                     clearInterval(timer);
-                    endGame("Le temps est écoulé ! Le gagnant est choisi au hasard.");
+                    $.ajax({
+                        url: '/end_game',
+                        method: 'POST',
+                        success: function(data) {
+                            endGame(data.message);
+                        }
+                    });
                 }
-                // checkGameEndConditions();
             }, 1000);
             gameStarted = true;
         }
@@ -883,6 +1372,8 @@
                         $('#welcome').hide();
                         $('#waiting').show();
                         startUpdateInterval();
+                    } else if (data.error === 'duplicate_name') {
+                        $('#error-popup').show();
                     } else {
                         alert(data.message);
                         checkGameState();
@@ -919,21 +1410,22 @@
                     readyPlayers = data.ready_players;
                     deadPlayers = data.dead_players;
                     $('#playerList').empty();
-                    const boutonPret = document.getElementById('readyButtonx');
+
                     if (players.length < 4) {
                         $('#readyButton').prop('disabled', true);
+                        $('#readyButton').text('Minimum 4 joueurs requis');
                     } else {
                         $('#readyButton').prop('disabled', readyPlayers.includes(playerName));
                     }
+
                     players.forEach(player => {
                         const readyStatus = readyPlayers.includes(player) ? ' (Prêt)' : '';
                         $('#playerList').append(`<li>${player}${readyStatus}</li>`);
                     });
-                    $('#readyButton').prop('disabled', readyPlayers.includes(playerName));
                     
                     updateDeadList();
                     
-                    if (data.all_ready && !gameStarted) {
+                    if (data.all_ready && !gameStarted && players.length >= 4) {
                         startCountdown();
                     }
 
@@ -954,12 +1446,13 @@
             $('#waiting').hide();
             $('#countdown').show();
             $('#timer').text(timeLeft);
+            $('#stats-button-container').hide();
 
             clearInterval(countdownInterval);
 
             countdownInterval = setInterval(() => {
                 timeLeft--;
-                console.log(timeLeft);
+        
                 $('#timer').text(timeLeft);
                 if (timeLeft <= 0) {
                     clearInterval(countdownInterval);
@@ -969,71 +1462,37 @@
         }
 
 
-        function checkGameEndConditions() {
-            const murderers = players.filter(p => roles[p] === "Meurtrier");
-            const innocents = players.filter(p => roles[p] !== "Meurtrier");
-
-            const murderersAlive = murderers.filter(p => !deadPlayers.includes(p));
-            const innocentsAlive = innocents.filter(p => !deadPlayers.includes(p));
-
-            console.log(murderers, innocents)
-
-            // Vérifier si tous les meurtriers sont morts
-            if (murderersAlive.length === 0 && gameStarted) {
-                endGame("Les innocents ont gagné en éliminant tous les meurtriers !");
-            }
-
-            // Vérifier si tous les innocents sont morts
-            if (innocentsAlive.length === 0 && gameStarted) {
-                endGame("Les meurtriers ont gagné en éliminant tous les innocents !");
-            }
-        }
-
-
-        // socket.on('cameraman_death_notification', function(data) {
-        //     const cameramanName = data.name;
-        //     if (confirm(`${cameramanName} est mort, voulez-vous utiliser le saint pouvoir de Joël ?`)) {
-        //         // Afficher la liste des joueurs vivants pour la sélection
-        //         $.ajax({
-        //             url: '/get_players',
-        //             method: 'GET',
-        //             success: function(data) {
-        //                 const alivePlayers = data.players.filter(player => !deadPlayers.includes(player));
-        //                 const selectedPlayer = prompt("Sélectionnez un joueur à ressusciter : " + alivePlayers.join(", "));
-                        
-        //                 if (alivePlayers.includes(selectedPlayer)) {
-        //                     $.ajax({
-        //                         url: '/resurrect',
-        //                         method: 'POST',
-        //                         contentType: 'application/json',
-        //                         data: JSON.stringify({ camerman_name: cameramanName, target_name: selectedPlayer }),
-        //                         success: function(response) {
-        //                             if (response.success) {
-        //                                 alert(`${selectedPlayer} a été ressuscité !`);
-        //                             } else {
-        //                                 alert(`Échec de la résurrection.`);
-        //                             }
-        //                         }
-        //                     });
-        //                 } else {
-        //                     alert("Joueur non valide.");
-        //                 }
-        //             }
-        //         });
-        //     }
-        // });
-
-
-        function endGame(message) {
-            $('#game').hide()
-            $('#gameOver').show()
-            $('#gameOverMessage').text(message)
-            const endMusic= document.getElementById("endMusic")
-            endMusic.play()
-        }
-
-
         $('#deadButton').click(function() {
+            if (role === "Caméraman") {
+                $.ajax({
+            url: '/handle_cameraman_death',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ name: playerName }),
+            success: function(data) {
+                if (data.can_resurrect) {
+                    showResurrectionButton();
+                } else {
+                    deathCode = generateDeathCode();
+                    $.ajax({
+                        url: '/set_dead',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ name: playerName, code: deathCode }),
+                        success: function(data) {
+                            isDead = true;
+                            $('#deadButton').hide();
+                            $('#scanButton').hide();
+                            $('#deathCode').text(deathCode);
+                            $('#deathCodeDisplay').show();
+                        }
+                    });
+                    $('#scanButton').hide();
+                    $('#codeEntry').hide();
+                }
+            }
+        });
+    } else {
             deathCode = generateDeathCode();
             $.ajax({
                 url: '/set_dead',
@@ -1050,7 +1509,220 @@
             });
             $('#scanButton').hide();
             $('#codeEntry').hide();
+    }
+});
+
+        function showResurrectionButton() {
+            $('#deadButton').hide();
+            $('#scanButton').hide();
+            $('#resurrection-button-container').show();
+            let timeLeft = 20;
+            
+            resurrectionTimer = setInterval(() => {
+                timeLeft--;
+                $('#resurrection-timer').text(`${timeLeft}s`);
+                
+                if (timeLeft <= 0) {
+                    const popup = $('#cameraman-popup');
+                    popup.hide();
+                    clearInterval(resurrectionTimer);
+                    $('#resurrection-button-container').hide();
+                    deathCode = generateDeathCode();
+                    $.ajax({
+                        url: '/set_dead',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ name: playerName, code: deathCode }),
+                        success: function(data) {
+                            isDead = true;
+                            $('#deadButton').hide();
+                            $('#scanButton').hide();
+                            $('#deathCode').text(deathCode);
+                            $('#deathCodeDisplay').show();
+                        }
+                    });
+                    $('#scanButton').hide();
+                    $('#codeEntry').hide();
+                    
+                }
+            }, 1000);
+        }
+
+        $('#resurrection-button').click(function() {
+            if (!isDead) {
+                $.ajax({
+                    url: '/initiate_resurrection',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        cameraman: playerName,
+                        initiator: playerName
+                    }),
+                    success: function(data) {
+                        showCameramanPopup();
+                    }
+                });
+            }
         });
+
+        function showCameramanPopup() {
+            const popup = $('#cameraman-popup');
+            const content = $('#cameraman-popup-content');
+            const buttons = $('#cameraman-popup-buttons');
+            
+            content.html('Voulez-vous ressusciter le caméraman ?');
+            buttons.html(`
+                <button onclick="handleCameramanChoice(true)">Oui</button>
+                <button onclick="handleCameramanChoice(false)">Non</button>
+            `);
+            
+            popup.show();
+        }
+
+        function handleCameramanChoice(accepted) {
+            if (!accepted) {
+                const popup = $('#cameraman-popup');
+                popup.hide();
+                clearInterval(resurrectionTimer);
+                $('#resurrection-button-container').hide();
+                deathCode = generateDeathCode();
+                $.ajax({
+                    url: '/set_dead',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ name: playerName, code: deathCode }),
+                    success: function(data) {
+                        isDead = true;
+                        $('#deadButton').hide();
+                        $('#scanButton').hide();
+                        $('#deathCode').text(deathCode);
+                        $('#deathCodeDisplay').show();
+                    }
+                });
+                $('#scanButton').hide();
+                $('#codeEntry').hide();
+            }
+            
+            // Show alive players selection
+            const alivePlayers = players.filter(p => !deadPlayers.includes(p) && p !== playerName);
+            let buttonsHtml = alivePlayers.map(p => 
+                `<button onclick="selectPlayer('${p}')">${p}</button>`
+            ).join('');
+            
+            $('#cameraman-popup-content').html('Sélectionnez un joueur :');
+            $('#cameraman-popup-buttons').html(buttonsHtml);
+        }
+
+        function selectPlayer(selectedPlayer) {
+            clearInterval(resurrectionTimer);
+
+
+            $('#cameraman-popup-content').html(`En attente de la décision de ${selectedPlayer}...`);
+            $('#cameraman-popup-buttons').html('');
+            
+            // Emit event to notify selected player
+            socket.emit('player_selected', {
+                cameraman: playerName,
+                selectedPlayer: selectedPlayer
+            });
+        }
+
+        socket.on('show_resurrection_choice', function(data) {
+            if (playerName === data.selectedPlayer) {
+                pendingCameramanName = data.cameraman;
+                const popup = $('#player-popup');
+                popup.show();
+                $('#player-popup-content').html(`Voulez-vous utiliser le saint pouvoir de <span class="joel-text">Joël</span> afin de refaire vivre ${pendingCameramanName} ?`);
+                $('#player-popup-buttons').html(`
+                    <button onclick="handlePlayerChoice(true)">Oui</button>
+                    <button onclick="handlePlayerChoice(false)">Non</button>
+                `);
+            }
+        });
+
+        function handlePlayerChoice(accepted) {
+    
+            $('#player-popup').hide();
+            
+            if (accepted) {
+                $.ajax({
+                    url: '/resurrect',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        camerman_name: pendingCameramanName,
+                        target_name: playerName
+                    }),
+                    success: function(response) {
+                
+                        if (response.success) {
+                            socket.emit('resurrection_accepted', {
+                                cameraman: pendingCameramanName,
+                                reviver: playerName
+                            });
+                        }
+                    }
+                });
+            } else {
+                socket.emit('resurrection_declined', { 
+                    cameraman: pendingCameramanName,
+                    reviver: playerName 
+                });
+            }
+        }
+
+        socket.on('show_death_code', function(data) {
+            if (playerName === data.cameraman) {
+                $('#cameraman-popup').hide();
+                const popup = $('#cameraman-popup');
+                popup.hide();
+                clearInterval(resurrectionTimer);
+                $('#resurrection-button-container').hide();
+                deathCode = generateDeathCode();
+                $.ajax({
+                    url: '/set_dead',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ name: playerName, code: deathCode }),
+                    success: function(data) {
+                        isDead = true;
+                        $('#deadButton').hide();
+                        $('#scanButton').hide();
+                        $('#deathCode').text(deathCode);
+                        $('#deathCodeDisplay').show();
+                    }
+                });
+                $('#scanButton').hide();
+                $('#codeEntry').hide();
+            }
+        });
+
+
+        socket.on('player_resurrected', function(data) {
+    
+            if (playerName === data.cameraman) {
+                isDead = false;
+                $('#cameraman-popup').hide();
+                $('#deadButton').show();
+                $('#scanButton').show();
+                $('#deathCodeDisplay').hide();
+                $('#resurrection-button-container').hide();
+
+                // Show role for 5 seconds
+                $('#roleDisplay').show();
+                setTimeout(function() {
+                    $('#roleDisplay').hide();
+                }, 5000);
+                
+                if (data.is_murderer) {
+                    $('body').addClass('dark-theme');
+                }
+            }
+            
+            updatePlayerList();
+        });
+
+
 
         $('#scanButton').click(function() {
             $('#codeEntry').show();
@@ -1140,66 +1812,7 @@
                 method: 'POST'
             });
         }
-
-        socket.on('cameraman_death_notification',
-        function showResurrectPopup() {
-            document.getElementById("resurrect-popup").style.display = "block";
-        });
-
-        document.getElementById("yes-resurrect").addEventListener("click", function() {
-            // Ici, vous pouvez envoyer une requête pour obtenir la liste des joueurs
-            fetch('/get_players')
-                .then(response => response.json())
-                .then(data => {
-                    showPlayerSelection(data.players);
-                });
-        });
-
-        document.getElementById("no-resurrect").addEventListener("click", function() {
-            document.getElementById("resurrect-popup").style.display = "none";
-        });
-
-
-        function showPlayerSelection(players) {
-            const playerList = document.getElementById("player-list");
-            playerList.innerHTML = ""; // Réinitialiser la liste
-
-            players.forEach(player => {
-                const li = document.createElement("li");
-                li.textContent = player;
-                li.addEventListener("click", function() {
-                    // Gérer la sélection du joueur
-                    confirmResurrection(player);
-                });
-                playerList.appendChild(li);
-            });
-
-            document.getElementById("player-selection-popup").style.display = "block";
-        }
-
-        function confirmResurrection(selectedPlayer) {
-            // Ici, vous pouvez envoyer une requête pour faire revivre le caméraman
-            const camermanName = "NomDuCameraman"; // Remplacez par le nom du caméraman
-            fetch('/resurrect', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ camerman_name: camermanName, target_name: selectedPlayer })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Gérer la réponse ici
-                alert(data.success ? "Le caméraman a été ressuscité." : "Échec de la résurrection.");
-                document.getElementById("player-selection-popup").style.display = "none";
-            });
-        }
-
-        // Gérer l'annulation
-        document.getElementById("cancel-selection").addEventListener("click", function() {
-            document.getElementById("player-selection-popup").style.display = "none";
-        });
-
+        
     </script>
     
 </body>
