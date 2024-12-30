@@ -24,6 +24,61 @@
         background-color: #f0f0f0;
         }
 
+        .help-button {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #666;
+            border: 1px solid #ccc;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .help-button:hover {
+            background: #aaa;
+            transform: scale(1.1);
+            animation: rotate360 1.5s linear;
+        }
+
+        .help-button:not(:hover) {
+            animation: unrotate360 1.5s linear;
+        }
+
+        .help-button.clicked {
+            animation: rotate360 1.5s linear;
+            pointer-events: none;
+        }
+
+        .help-button.closing {
+            animation: unrotate360 1.5s linear;
+            pointer-events: none;
+        }
+
+        @keyframes rotate360 {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(-360deg);
+            }
+        }
+
+        @keyframes unrotate360 {
+            from {
+                transform: rotate(-360deg);
+            }
+            to {
+                transform: rotate(0deg);
+            }
+        }
+
         .container {
             max-width: 600px;
             margin: 0 auto;
@@ -33,6 +88,7 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
             transition: transform 0.2s;
+            position: relative;
         }
 
         h1, h2, h3 {
@@ -434,6 +490,9 @@
 
     <div class="container">
 
+        <button class="help-button" onclick="handleHelpClick(this)">?</button>
+
+
         <!-- Bouton pour accéder au jeu -->
         <div id="accessPageButtonContainer" style="text-align: center; margin: 20px 0;">
             <button class="styled-button" onclick="pageAccess()">Accéder au jeu</button>
@@ -536,7 +595,6 @@
         <div id="gameOver" style="display: none;">
             <h2 class="gradient-header">Fin du jeu !</h2>
             <p id="gameOverMessage"></p>
-            <button id="restartButton" class="styled-button" onclick="restartGame()">Rejouer</button>
         </div>
 
         <div id="stats-button-container">
@@ -566,7 +624,8 @@
                 <li>Les joueurs peuvent "se mettre mort" pour simuler leur mort et créer des mystères.</li>
                 <li>Les joueurs peuvent vérifier les codes des morts pour confirmer les décès.</li>
                 <li>Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou que le temps est écoulé.</li>
-                <li>Lorsque le temps est écoulé, le gagnant est désigné de manière aléatoire</li> 
+                <li>Lorsque le temps est écoulé, le gagnant est désigné de manière aléatoire</li>
+                <li>Pour terminer la partie, veuillez bien vérifier si les codes de décès du l'équipe ennemies sont rentrés et allez à l'ordinateur pour valider la victoire d'un camp</li> 
             </ul>
 
             <h3 class="gradient-header"><u>Interdictions et obligations</u></h3>
@@ -672,10 +731,12 @@
         let isDead = false;
         let gameStarted = false;
         let timeLeft = 10;
+        let gameTime = 600;
         let deathCode = '';
         let scannedDeadPlayers = [];  // Pour stocker uniquement les joueurs morts confirmés
         let couplePartner = null;
         let countdownInterval;
+        let countdownTimer;
         const socket = io();
         const SUPPORTS_MEDIA_DEVICES = 'mediaDevices' in navigator;
         let coupleMessages = {}; // Stocker les messages par couple
@@ -695,6 +756,9 @@
         let pendingCameramanName = null;
         let gameHistory = [];
         let currentGameDetails = null;
+        const gameStateUrl = '/game_state';
+        const closeButton = document.getElementsByClassName("close-button")[0];
+        const modal = document.getElementById("rulesModal");
         
         //-----------------------------------------
         const button = document.getElementById('show-stats');
@@ -702,6 +766,26 @@
         let gradientStep = 0;
         let angleStep = 0;
         let rotationDirection = 1;
+
+        //-----------------------------------
+        function handleHelpClick(button) {
+            button.classList.add('clicked');
+            setTimeout(() => {
+                button.classList.remove('clicked');
+                openModal();
+            }, 1500);
+        }
+
+        closeButton.onclick = function() {
+            const helpButton = document.querySelector('.help-button');
+            helpButton.classList.add('closing');
+            setTimeout(() => {
+                modal.style.display = "none";
+                helpButton.classList.remove('closing');
+            }, 2000);
+        }
+
+        //-----------------------------------
 
         function getGradientColor(step, frequency1, frequency2, frequency3, phase1, phase2, phase3, center, width) {
             const r = Math.sin(frequency1 * step + phase1) * width + center;
@@ -888,6 +972,7 @@
             return emojis[actionType] || '❓';
         }
 
+        // Replace the existing game end socket listener with:
         socket.on('game_end', function(data) {
             $('#game').hide();
             $('#gameOver').show();
@@ -899,6 +984,27 @@
             endMusic.play();
         });
 
+        socket.on('game_restart', function() {
+            // window.location.reload();
+            clearInterval(countdownInterval); // Clear the countdown timer
+            clearInterval(countdownTimer); // Clear the game timer if it exists
+            $('#game').hide();
+            $('#gameOver').hide();
+            $('#accessPage').show();
+            $('#welcome').show();
+            $('#waiting').hide();
+            $('#playerName').val('');
+            $('#stats-button-container').show();
+            timeLeft = 10;
+            gameTime = 600;
+            isDead = false;
+            gameStarted = false;
+            players = [];
+            readyPlayers = [];
+            scannedDeadPlayers = [];
+            music.play();
+        });
+
         function endGame(message) {
             $('#game').hide();
             $('#gameOver').show();
@@ -907,18 +1013,19 @@
             endMusic.play();
         }
 
-        function checkWinConditions() {
-            $.ajax({
-                url: '/end_game',
-                method: 'POST',
-                success: function(data) {
-                    if (data.message !== "Le jeu continue...") {
-                        endGame(data.message);
-                    }
-                }
-            });
-        }
+        // function checkWinConditions() {
+        //     $.ajax({
+        //         url: '/end_game',
+        //         method: 'POST',
+        //         success: function(data) {
+        //             if (data.message !== "Le jeu continue...") {
+        //                 endGame(data.message);
+        //             }
+        //         }
+        //     });
+        // }
 
+        
 
 
 
@@ -968,12 +1075,8 @@
         $('#game').hide();
 
         // Obtenir le modal
-        const modal = document.getElementById("rulesModal");
 
         const music = document.getElementById('backgroundMusic');
-
-        // Obtenir l'élément <span> qui ferme le modal
-        const closeButton = document.getElementsByClassName("close-button")[0];
 
         // Fonction pour ouvrir le modal
         function openModal() {
@@ -1235,8 +1338,6 @@
 
         //-------------------------------------------------
 
-
-            // Modifier la fonction startGame pour initialiser la communication du couple
         function startGame() {
             $.ajax({
                 url: '/start_game',
@@ -1244,22 +1345,24 @@
                 contentType: 'application/json', // Ajoutez ceci pour spécifier le type de contenu
                 data: JSON.stringify({ name: playerName }), // Envoyez le nom du joueur
                 success: function(data) {
-                    roles = data
-                    role = data.roles[playerName];
-                    $('#countdown').hide();
-                    $('#coupleSection').hide();
-                    $('#role').text(role);
-                    $('#game').show();
+                    if (data.success) {
+                        roles = data
+                        role = data.roles[playerName];
+                        $('#countdown').hide();
+                        $('#coupleSection').hide();
+                        $('#role').text(role);
+                        $('#game').show();
 
-                    if (role === 'Couple') {
-                        initCoupleCommunication();
+                        if (role === 'Couple') {
+                            initCoupleCommunication();
+                        }
+                        // Arrêter la musique
+                        const music = document.getElementById('backgroundMusic');
+                        music.pause(); // Arrête la musique
+                        music.currentTime = 0; // Remet à zéro la musique
+
+                        startGameTimer();
                     }
-                    // Arrêter la musique
-                    const music = document.getElementById('backgroundMusic');
-                    music.pause(); // Arrête la musique
-                    music.currentTime = 0; // Remet à zéro la musique
-
-                    startGameTimer();
                 }  
         });
         }
@@ -1268,6 +1371,7 @@
         // Vérifier l'état du jeu au chargement de la page
         $(document).ready(function() {
             checkGameState();
+
         });
 
 
@@ -1300,8 +1404,7 @@
             const timeLimit = 600; // 10 minutes en secondes
             let elapsedTime = 0;
 
-            
-
+            clearInterval(countdownTimer);
             // Afficher les rôles pendant les 10 premières secondes
             $('#roleDisplay').show();
             const roleDisplayDuration = 10; // secondes
@@ -1311,21 +1414,20 @@
                 $('#roleDisplay').hide();
             }, roleDisplayDuration * 1000);
 
-            const timer = setInterval(function() {
-        
-                elapsedTime++;
-                const remainingTime = timeLimit - elapsedTime;
-                $('#remainingTime').text(formatTime(remainingTime));
+            countdownTimer = setInterval(function() {
+                gameTime--;
+                $('#remainingTime').text(formatTime(gameTime));
 
-                // Afficher les rôles pendant les 20 dernières secondes
-                if (remainingTime <= 20) {
+                if (gameTime <= 20) {
                     $('#roleDisplay').show();
                 }
 
-                checkWinConditions();
-                
-                if (remainingTime <= 0) {
-                    clearInterval(timer);
+                // if (gameTime <= 600 - 10) {
+                //     $('#roleDisplay').hide();
+                // }
+
+                if (gameTime <= 0) {
+                    clearInterval(countdownTimer);
                     $.ajax({
                         url: '/end_game',
                         method: 'POST',
@@ -1333,8 +1435,33 @@
                             endGame(data.message);
                         }
                     });
-                }
+                }                    
             }, 1000);
+
+        //     const timer = setInterval(function() {
+        
+        //         elapsedTime++;
+        //         const remainingTime = timeLimit - elapsedTime;
+        //         $('#remainingTime').text(formatTime(remainingTime));
+
+        //         // Afficher les rôles pendant les 20 dernières secondes
+        //         if (remainingTime <= 20) {
+        //             $('#roleDisplay').show();
+        //         }
+
+        //         // checkWinConditions();
+                
+        //         if (remainingTime <= 0) {
+        //             clearInterval(timer);
+        //             $.ajax({
+        //                 url: '/end_game',
+        //                 method: 'POST',
+        //                 success: function(data) {
+        //                     endGame(data.message);
+        //                 }
+        //             });
+        //         }
+        //     }, 1000);
             gameStarted = true;
         }
 
@@ -1411,11 +1538,12 @@
                     deadPlayers = data.dead_players;
                     $('#playerList').empty();
 
-                    if (players.length < 4) {
+                    if (players.length < 2) {
                         $('#readyButton').prop('disabled', true);
                         $('#readyButton').text('Minimum 4 joueurs requis');
                     } else {
                         $('#readyButton').prop('disabled', readyPlayers.includes(playerName));
+                        $('#readyButton').text('Prêt');
                     }
 
                     players.forEach(player => {
@@ -1425,7 +1553,7 @@
                     
                     updateDeadList();
                     
-                    if (data.all_ready && !gameStarted && players.length >= 4) {
+                    if (data.all_ready && !gameStarted && players.length >= 2) {
                         startCountdown();
                     }
 
@@ -1782,36 +1910,6 @@
         }
 
         setInterval(updateTitle, interval);
-
-        function restartGame() {
-            const endMusic = document.getElementById("endMusic")
-            endMusic.pause()
-            endMusic.currentTime = 0
-            
-            const music = document.getElementById("backgroundMusic")
-            music.play()
-
-            // Réinitialiser l'état de l'interface utilisateur
-            $('#gameOver').hide();
-            $('#accessPage').show();
-            $('#playerName').val('');
-            
-            // Réinitialiser les variables de jeu si nécessaire
-            players = [];
-            readyPlayers = [];
-            deadPlayers = [];
-            scannedDeadPlayers = [];
-            roles = {};
-            deathCodes = {};
-            gameStarted = false;
-            isDead = false;
-
-            // Optionnel : Réinitialiser le serveur si nécessaire
-            $.ajax({
-                url: '/reset_game', // Vous devrez créer cette route si nécessaire
-                method: 'POST'
-            });
-        }
         
     </script>
     

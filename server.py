@@ -58,6 +58,8 @@ install_and_import(["Flask", ["Flask", "request", "jsonify"], False, False],
                    ["sqlite3", True, False, False],
                    ["json", True, False, False],
                    ["datetime", "datetime", False, False],
+                   ["threading", ["Lock"], False, False],
+                   ["webbrowser", True, False, False],
                 )
 
 
@@ -80,8 +82,6 @@ def remove_line_from_file(filepath, line_to_remove):
 filepath = folder + "/flask_socketio/__init__.py"
 line_to_remove = "reason = socketio.Server.reason"
 remove_line_from_file(filepath, line_to_remove)
-
-
 
 # from flask import Flask, request, jsonify
 # from flask_cors import CORS
@@ -229,32 +229,34 @@ socketio = SocketIO(app)
 
 
 
-
-# Variables globales pour gérer l'état du jeu
 players = []
 ready_players = []
 roles = {}
 dead_players = []
-death_codes = {}  # Pour stocker les codes de mort {code: player_name}
-scanned_dead_players = []  # Liste des joueurs morts confirmés
-game_in_progress = False  # État du jeu
+death_codes = {}
+scanned_dead_players = []
+game_in_progress = False
 couple_messages = {}
 couple_pairs = {}
-
-cameraman_resurrections = {}  # Track resurrections per cameraman
+cameraman_resurrections = {}
 cameraman_pending_resurrection = None
 game_actions = []
 game_start_time = None
 saved = False
+assign = False
+pending_resurrections = set()
+
+state_lock = Lock()
 
 def record_action(action_type, player, target=None, description=None):
-    game_actions.append({
-        'time': int(time.time() - game_start_time),
-        'type': action_type,
-        'player': player,
-        'target': target,
-        'description': description
-    })
+        global game_actions
+        game_actions.append({
+            'time': int(time.time() - game_start_time),
+            'type': action_type,
+            'player': player,
+            'target': target,
+            'description': description
+        })
 
 @app.route('/get_stats')
 def get_stats():
@@ -279,64 +281,67 @@ def game_details(game_id):
 
 @app.route('/get_couple_partner', methods=['POST'])
 def get_couple_partner():
-    data = request.get_json()
-    player_name = data.get('name')
-    
-    # Trouver le partenaire du couple
-    couple_members = [p for p, r in roles.items() if r == "Couple"]
-    partner = next((p for p in couple_members if p != player_name), None)
-    
-    return jsonify({'partner': partner})
+        data = request.get_json()
+        player_name = data.get('name')
+        
+        # Trouver le partenaire du couple
+        couple_members = [p for p, r in roles.items() if r == "Couple"]
+        partner = next((p for p in couple_members if p != player_name), None)
+        
+        return jsonify({'partner': partner})
 
 
 @app.route('/send_couple_message', methods=['POST'])
 def send_couple_message():
-    data = request.get_json()
-    sender = data.get('sender')
-    message = data.get('message')
-    
-    # Trouver le partenaire
-    couple_members = [p for p, r in roles.items() if r == "Couple"]
-    partner = next((p for p in couple_members if p != sender), None)
-    
-    if partner:
-        if partner not in couple_messages:
-            couple_messages[partner] = []
-        couple_messages[partner].append({
-            'sender': sender,
-            'message': message
-        })
-    
-    return jsonify({'status': 'success'})
+        global couple_messages
+        data = request.get_json()
+        sender = data.get('sender')
+        message = data.get('message')
+        
+        # Trouver le partenaire
+        couple_members = [p for p, r in roles.items() if r == "Couple"]
+        partner = next((p for p in couple_members if p != sender), None)
+        
+        if partner:
+            if partner not in couple_messages:
+                couple_messages[partner] = []
+            couple_messages[partner].append({
+                'sender': sender,
+                'message': message
+            })
+        
+        return jsonify({'status': 'success'})
 
 
 @app.route('/get_couple_messages', methods=['POST'])
 def get_couple_messages():
-    data = request.get_json()
-    player_name = data.get('name')
-    
-    messages = couple_messages.get(player_name, [])
-    # Effacer les messages après les avoir récupérés
-    couple_messages[player_name] = []
-    
-    return jsonify({'messages': messages})
+        global couple_messages
+        data = request.get_json()
+        player_name = data.get('name')
+        
+        messages = couple_messages.get(player_name, [])
+        # Effacer les messages après les avoir récupérés
+        couple_messages[player_name] = []
+        
+        return jsonify({'messages': messages})
 
 
 @app.route('/check_couple_partner_alive', methods=['POST'])
 def check_couple_partner_alive():
-    data = request.get_json()
-    player_name = data.get('name')
-    
-    # Trouver le partenaire du couple
-    couple_members = [p for p, r in roles.items() if r == "Couple"]
-    partner = next((p for p in couple_members if p != player_name), None)
-    
-    is_partner_alive = partner and partner not in dead_players
-    
-    return jsonify({
-        'partner': partner, 
-        'is_partner_alive': is_partner_alive
-    })
+        global roles, dead_players
+        data = request.get_json()
+        player_name = data.get('name')
+        
+        # Trouver le partenaire du couple
+        couple_members = [p for p, r in roles.items() if r == "Couple"]
+        partner = next((p for p in couple_members if p != player_name), None)
+        
+        is_partner_alive = partner and partner not in dead_players
+        
+        return jsonify({
+            'partner': partner, 
+            'is_partner_alive': is_partner_alive
+        })
 
 
 @app.route('/')
@@ -346,100 +351,111 @@ def home():
 
 @app.route('/game_state', methods=['GET'])
 def game_state():
-    return jsonify({'game_in_progress': game_in_progress})
+        return jsonify({'game_in_progress': game_in_progress})
 
 
 @app.route('/join', methods=['POST'])
 def join():
-    global game_in_progress
-    data = request.get_json()
-    player_name = data.get('name')
-    
-    if game_in_progress:
-        return jsonify({'success': False, 'message': 'Une partie est déjà en cours.'})
-    
-    if player_name in players:
-        return jsonify({'success': False, 'error': 'duplicate_name'})
+        global players, game_in_progress
+        data = request.get_json()
+        player_name = data.get('name')
+        
+        if game_in_progress:
+            return jsonify({'success': False, 'message': 'Une partie est déjà en cours.'})
+        
+        if player_name in players:
+            return jsonify({'success': False, 'error': 'duplicate_name'})
 
-    players.append(player_name)
-    return jsonify({'success': True, 'players': players})
+        players.append(player_name)
+        couple_messages = {}
+        return jsonify({'success': True, 'players': players})
 
 
 @app.route('/ready', methods=['POST'])
 def ready():
-    data = request.get_json()
-    player_name = data.get('name')
-    if player_name not in ready_players:
-        ready_players.append(player_name)
-    return jsonify({
-        'ready_players': ready_players,
-        'all_ready': len(ready_players) == len(players)
-    })
+        global ready_players, players
+        data = request.get_json()
+        player_name = data.get('name')
+        if player_name not in ready_players:
+            ready_players.append(player_name)
+        return jsonify({
+            'ready_players': ready_players,
+            'all_ready': len(ready_players) == len(players)
+        })
 
 
 @app.route('/start_game', methods=['POST'])
 def start_game():
-    global game_in_progress, roles, game_start_time
-    data = request.get_json()
-    player_name = data.get('name')
+        global game_in_progress, roles, ready_players, players, game_start_time, actions
+        data = request.get_json()
+        player_name = data.get('name')
 
-    if not roles and not player_name in roles.keys() and not game_in_progress:
-        game_in_progress = True
-        game_start_time = time.time()
-        roles = assign_roles(players)
-        record_action('game_start', None, description="Début de la partie")
-        return jsonify({'success': True, 'roles': roles})
-    
-    elif player_name in roles.keys():
-        game_in_progress = True
-        return jsonify({'success': True, 'roles': roles})
-    
-    return jsonify({'success': False, 'message': 'Une partie est déjà en cours.'})
+        if len(ready_players) != len(players):
+            return jsonify({'success': False, 'message': 'Tous les joueurs ne sont pas prêts.'})
+
+        if not player_name in roles.keys() and not game_in_progress:
+            game_in_progress = True
+            roles = assign_roles(players)
+            game_start_time = time.time()
+            hostname = socket.gethostname()
+            local_ip = socket.gethostbyname(hostname)
+            open_admin_page(local_ip)
+            return jsonify({'success': True, 'roles': roles})
+        
+        elif player_name in roles.keys():
+            game_in_progress = True
+            return jsonify({'success': True, 'roles': roles})
+
+        
+        return jsonify({'success': False, 'message': 'Une partie est déjà en cours.'})
 
     
 
 @app.route('/get_players', methods=['GET'])
 def get_players():
-    return jsonify({
-        'players': players,
-        'ready_players': ready_players,
-        'dead_players': scanned_dead_players,  # Uniquement les morts confirmés
-        'all_ready': len(ready_players) == len(players)
-    })
+        global players, ready_players, dead_players, scanned_dead_players
+        return jsonify({
+            'players': players,
+            'ready_players': ready_players,
+            'dead_players': scanned_dead_players,
+            'all_ready': len(ready_players) == len(players)
+        })
 
 
-@app.route('/set_dead', methods=['POST'])
+@app.route('/set_dead', methods=['POST'])   
 def set_dead():
-    data = request.get_json()
-    player_name = data.get('name')
-    death_code = data.get('code')
-    if player_name not in dead_players:
-        dead_players.append(player_name)
-        death_codes[death_code] = player_name
-        record_action('death', player_name)
+        global dead_players, death_codes, roles
+        data = request.get_json()
+        player_name = data.get('name')
+        death_code = data.get('code')
+        if player_name not in dead_players:
+            dead_players.append(player_name)
+            death_codes[death_code] = player_name
+            record_action('death', player_name)
 
-        if roles.get(player_name) == "Caméraman":
-            handle_cameraman_death(player_name)
+            if roles.get(player_name) == "Caméraman":
+                handle_cameraman_death(player_name)
 
-    return jsonify({'success': True})
+        return jsonify({'success': True})
 
 
 @app.route('/resurrect', methods=['POST'])
 def resurrect():
-    data = request.get_json()
-    camerman_name = data.get('camerman_name')
-    target_name = data.get('target_name')
+        global pending_resurerections, roles
+        data = request.get_json()
+        camerman_name = data.get('camerman_name')
+        target_name = data.get('target_name')
 
-    if camerman_name in pending_resurrections:
-        pending_resurrections.remove(camerman_name)
-        if roles.get(target_name) == "Meurtrier":
-            roles[camerman_name] = "Caméraman (Démoniaque)"
-            record_action('resurrect_evil', target_name, camerman_name)
-        else:
-            record_action('resurrect', target_name, camerman_name)
-        return jsonify({'success': True})
+        if camerman_name in pending_resurrections:
+            pending_resurrections.remove(camerman_name)
+            if roles.get(target_name) == "Meurtrier":
+                roles[camerman_name] = "Caméraman (Démoniaque)"
+                record_action('resurrect_evil', target_name, camerman_name)
+            else:
+                record_action('resurrect', target_name, camerman_name)
+            return jsonify({'success': True})
 
-    return jsonify({'success': False})
+        return jsonify({'success': False})
 
 @socketio.on('resurrection_declined')
 def handle_resurrection_declined(data):
@@ -449,6 +465,7 @@ def handle_resurrection_declined(data):
 
 @socketio.on('resurrection_accepted')
 def handle_resurrection_accepted(data):
+        global cameraman_resurrections, roles
         cameraman_resurrections[data['cameraman']] = 1
         socketio.emit('player_resurrected', {
             'cameraman': data['cameraman'],
@@ -460,114 +477,87 @@ def handle_resurrection_accepted(data):
 
 @app.route('/verify_dead', methods=['POST'])
 def verify_dead():
-    data = request.get_json()
-    entered_code = data.get('code')
-    scanner = data.get('scanner')
-    if entered_code in death_codes:
-        dead_player = death_codes[entered_code]
-        if dead_player not in scanned_dead_players:
-            scanned_dead_players.append(dead_player)
-            record_action('scan', scanner, dead_player)
-            socketio.emit('update_dead_players', {'dead_players': scanned_dead_players})
-            return jsonify({
-                'success': True,
-                'dead_players': scanned_dead_players
-            })
-    return jsonify({
-        'success': False,
-        'dead_players': scanned_dead_players
-    })
+        global death_codes, scanned_dead_players
+        data = request.get_json()
+        entered_code = data.get('code')
+        scanner = data.get('scanner')
+        if entered_code in death_codes:
+            dead_player = death_codes[entered_code]
+            if dead_player not in scanned_dead_players:
+                scanned_dead_players.append(dead_player)
+                record_action('scan', scanner, dead_player)
+                socketio.emit('update_dead_players', {'dead_players': scanned_dead_players})
+                return jsonify({
+                    'success': True,
+                    'dead_players': scanned_dead_players
+                })
+        return jsonify({
+            'success': False,
+            'dead_players': scanned_dead_players
+        })
 
-@app.route('/end_game', methods=['POST'])
-def end_game():
-    global game_in_progress, players, ready_players, roles, dead_players, death_codes, scanned_dead_players, game_actions
-    
-    result = check_winner()
-    
-    # Save game data
-    game_records = GameRecord()
-    game_records.save_game(
-        winner=result.split()[0],  # "Les innocents/meurtriers ont gagné" -> "innocents/meurtriers"
-        duration=int(time.time() - game_start_time),
-        players_data={
-            'players': players,
-            'roles': roles,
-            'dead': dead_players
-        },
-        actions=game_actions
-    )
-    
-    # Reset game state
-    game_in_progress = False
-    players = []
-    ready_players = []
-    roles = {}
-    dead_players = []
-    death_codes = {}
-    scanned_dead_players = []
-    game_actions = []
-    
-    return jsonify({'message': result})
+def reset_game_variables():
+        global players, ready_players, roles, dead_players, death_codes, scanned_dead_players, game_actions, assign, saved
+        players = []
+        ready_players = []
+        roles = {}
+        dead_players = []
+        death_codes = {}
+        scanned_dead_players = []
+        game_actions = []
+        assign = False
+        saved = False
+
+
 
 def assign_roles(players):
-    roles = {}
-    # Copier la liste des joueurs
-    available_players = players.copy()
+        global roles, assign
+        if assign:
+            return roles
     
-    # Assigner les meurtriers (2 joueurs si possible)
-    murderer_count = max(2, len(players) // 4)
+        assign = True
+        roles = {}
+        available_players = players.copy()
 
-    for _ in range(murderer_count):
-        if available_players:
-            murderer = random.choice(available_players)
-            roles[murderer] = "Meurtrier"
-            available_players.remove(murderer)
-    
-    # Assigner le couple
-    if len(available_players) >= 2:
-        couple_member1 = random.choice(available_players)
-        available_players.remove(couple_member1)
-        couple_member2 = random.choice(available_players)
-        available_players.remove(couple_member2)
-        roles[couple_member1] = "Couple"
-        roles[couple_member2] = "Couple"
-    
-    # Assigner le détective
-    if available_players:
-        detective = random.choice(available_players)
-        roles[detective] = "Détective"
-        available_players.remove(detective)
-    
-    # Assigner le médecin
-    if available_players:
-        medic = random.choice(available_players)
-        roles[medic] = "Médecin"
-        available_players.remove(medic)
-    
-    # Assigner le caméraman
-    if available_players:
-        cameraman = random.choice(available_players)
-        roles[cameraman] = "Caméraman"
-        available_players.remove(cameraman)
-    
-    # Le reste des joueurs sont des civils
-    for player in available_players:
-        roles[player] = "Civil"
-    return roles
+        # Assign murderers first
+        murderer_count = max(2, len(players) // 4)
+        for _ in range(murderer_count):
+            if available_players:
+                murderer = random.choice(available_players)
+                roles[murderer] = "Meurtrier"
+                available_players.remove(murderer)
+
+        # Assign couple if enough players
+        if len(available_players) >= 2:
+            couple_member1 = random.choice(available_players)
+            available_players.remove(couple_member1)
+            couple_member2 = random.choice(available_players)
+            available_players.remove(couple_member2)
+            roles[couple_member1] = "Couple"
+            roles[couple_member2] = "Couple"
+        # Assign special roles to remaining players
+        while available_players:
+            player = available_players.pop()
+            role = random.choice(["Détective", "Médecin", "Caméraman", "Civil", "Civil", "Civil"])
+            roles[player] = role
+
+        return roles
+
 
 
 @app.route('/handle_cameraman_death', methods=['POST'])
 def handle_cameraman_death():
-    data = request.get_json()
-    cameraman_name = data['name']
-    
-    if cameraman_name not in cameraman_resurrections:
-        cameraman_resurrections[cameraman_name] = 0
-    
-    if cameraman_resurrections[cameraman_name] >= 1:
-        return jsonify({'can_resurrect': False})
+        global cameraman_resurrections
+        data = request.get_json()
+        cameraman_name = data['name']
         
-    return jsonify({'can_resurrect': True})
+        if cameraman_name not in cameraman_resurrections:
+            cameraman_resurrections[cameraman_name] = 0
+        
+        if cameraman_resurrections[cameraman_name] >= 1:
+            return jsonify({'can_resurrect': False})
+            
+        return jsonify({'can_resurrect': True})
 
 @socketio.on('player_selected')
 def handle_player_selection(data):
@@ -578,90 +568,130 @@ def handle_player_selection(data):
 
 @app.route('/initiate_resurrection', methods=['POST'])
 def initiate_resurrection():
-    global cameraman_pending_resurrection
-    data = request.get_json()
-    cameraman_name = data['cameraman']
-    initiator = data['initiator']
-    
-    cameraman_pending_resurrection = {
-        'cameraman': cameraman_name,
-        'initiator': initiator
-    }
-    
-    return jsonify({'success': True})
+        global cameraman_pending_resurrection
+        data = request.get_json()
+        cameraman_name = data['cameraman']
+        initiator = data['initiator']
+        
+        cameraman_pending_resurrection = {
+            'cameraman': cameraman_name,
+            'initiator': initiator
+        }
+        
+        return jsonify({'success': True})
 
 
 def save_game_result(winner):
-    global saved
+        global saved
+        if saved:
+            return
 
-    if saved:
-        pass
+        else:
+            saved = True
+            game_records = GameRecord()
+            game_records.save_game(
+                winner=winner,
+                duration=int(time.time() - game_start_time),
+                players_data={
+                    'players': players,
+                    'roles': roles,
+                    'dead': dead_players
+                },
+                actions=game_actions
+            )
 
-    else:
-        saved = True
-        game_records = GameRecord()
-        game_records.save_game(
-            winner=winner,
-            duration=int(time.time() - game_start_time),
-            players_data={
-                'players': players,
-                'roles': roles,
-                'dead': dead_players
-            },
-            actions=game_actions
-        )
+def open_admin_page(url):
+    webbrowser.open(f'http://{url}:5000/admin')
+
+@app.route('/admin')
+def admin():
+    return app.send_static_file('admin.html')
+
+@app.route('/check_victory', methods=['POST'])
+def check_victory():
+        global players, roles, dead_players, scanned_dead_players, game_actions
+        if check_time_limit():
+            return jsonify({
+                'valid': True,
+                'message': "Le temps est écoulé! Les {winner} ont gagné!"
+            })
 
 
-def check_winner():
-    murderers = [p for p in players if roles.get(p) == "Meurtrier" or roles.get(p) == "Caméraman (Démoniaque)"]
-    murderers_alive = [p for p in murderers if p not in dead_players]
-    
-    innocents = [p for p in players if roles.get(p) not in ["Meurtrier", "Caméraman (Démoniaque)"]]
-    innocents_alive = [p for p in innocents if p not in dead_players]
+        data = request.get_json()
+        winner = data.get('winner')
+        
+        murderers = [p for p in players if roles.get(p) in ["Meurtrier", "Caméraman (Démoniaque)"]]
+        innocents = [p for p in players if roles.get(p) not in ["Meurtrier", "Caméraman (Démoniaque)"]]
+        
+        all_dead_confirmed = all(p in scanned_dead_players for p in dead_players)
+        
+        if winner == "Meurtriers":
+            valid = all(p in dead_players for p in innocents) and all_dead_confirmed
+        else:
+            valid = all(p in dead_players for p in murderers) and all_dead_confirmed
+            
+        if valid:
+            save_game_result(winner)
+            return jsonify({
+                'valid': True,
+                'message': f"Les {winner} ont gagné !!"
+            })
+            
+        return jsonify({
+            'valid': False,
+            'message': "Verification failed"
+        })
 
-    all_dead_confirmed = all(p in scanned_dead_players for p in dead_players)
-    
-    if not murderers_alive and all_dead_confirmed:
-        save_game_result("Innocents")
-        socketio.emit('game_end', {'winner': 'Innocents'})
-        return "Les innocents ont gagné !!"
-    
-    if not innocents_alive and all_dead_confirmed:
-        save_game_result("Meurtriers")
-        socketio.emit('game_end', {'winner': 'Meurtriers'})
-        return "Les meurtriers ont gagné !!"
-    
-    if time.time() > game_start_time + 600:  # 10 minutes
+@socketio.on('restart_game')
+def handle_restart_game():
+    socketio.emit('game_restart')
+
+def check_time_limit():
+    global game_start_time, saved
+    if time.time() > game_start_time + 600 and not saved:  # 10 minutes
         winner = random.choice(['Innocents', 'Meurtriers'])
         save_game_result(winner)
         socketio.emit('game_end', {'winner': winner})
-        return f"Le temps est écoulé! Les {winner} ont gagné!"
-    
-    return "Le jeu continue..."
+        return True
+    return False
 
 
 @app.route('/reset_game', methods=['POST'])
 def reset_game():
-    global players, ready_players, roles, dead_players, death_codes, scanned_dead_players, game_in_progress
-    
-    # Réinitialiser toutes les variables du jeu
-    game_in_progress = False
+    global players, ready_players, roles, dead_players, scanned_dead_players, game_actions, game_start_time, saved, assign, game_in_progress, couple_messages, couple_pairs, cameraman_resurrections, cameraman_pending_resurrection, game_actions, game_start_time, saved, assign
     players = []
     ready_players = []
     roles = {}
     dead_players = []
     death_codes = {}
     scanned_dead_players = []
+    game_in_progress = False
+    couple_messages = {}
+    couple_pairs = {}
+    cameraman_resurrections = {}
+    cameraman_pending_resurrection = None
+    game_actions = []
+    game_start_time = None
+    saved = False
+    assign = False
+
     
     return jsonify({'status': 'success'})
 
 
+
 def ngrok():
+
+    # ngrok config add-authtoken 2p2PH2tcX0kRsxLmFQAbNOBRFah_DtKFfxa3sSotYbb5sB24 -> burro-golden-bird.ngrok-free.app
+    # ngrok config add-authtoken 2pCUFvSe9CHgq5dZk11ajfy5Tql_3J3B2sqieZMeisMQ4HoBs -> jawfish-correct-weekly.ngrok-free.app
+
+    # Supprimer le fichier ngrok.yml s'il existe lorsqu'on change d'url
+    
     subprocess.Popen(['./ngrok.exe'], stdout=subprocess.PIPE)
     time.sleep(1)
     if not os.path.exists(os.path.join(os.path.expanduser("~"), 'AppData', 'Local' , 'ngrok', 'ngrok.yml')):
-        subprocess.Popen(['ngrok', 'config', 'add-authtoken', '2pCUFvSe9CHgq5dZk11ajfy5Tql_3J3B2sqieZMeisMQ4HoBs'], stdout=subprocess.PIPE)
-    subprocess.Popen(['ngrok', 'http', f'http://{local_ip}:5000', '--url=jawfish-correct-weekly.ngrok-free.app'])
+        subprocess.Popen(['ngrok', 'config', 'add-authtoken', '2p2PH2tcX0kRsxLmFQAbNOBRFah_DtKFfxa3sSotYbb5sB24'], stdout=subprocess.PIPE)
+    subprocess.Popen(['ngrok', 'http', f'http://{local_ip}:5000', '--url=burro-golden-bird.ngrok-free.app'])
 
 
 
@@ -672,7 +702,7 @@ if __name__ == '__main__':
 
 
     print(f"Local IP: http://{local_ip}:5000")
-    # ngrok_access = threading.Thread(target=ngrok)
-    # ngrok_access.start()
+    ngrok_access = threading.Thread(target=ngrok)
+    ngrok_access.start()
 
     socketio.run(app, '0.0.0.0')

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Murder Mystery Admin Panel</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .victory-button {
+            padding: 20px;
+            margin: 10px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 300px;
+        }
+        
+        .murderer-button {
+            background-color: #ff0000;
+            color: white;
+        }
+        
+        .innocent-button {
+            background-color: #0000ff;
+            color: white;
+        }
+        
+        .warning-message {
+            color: red;
+            font-weight: bold;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .help-button {
+            background-color: #666;
+            border: 1px solid #ccc;
+            color: white;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+        .help-button:hover {
+            background: #aaa;
+            transform: scale(1.1);
+            animation: rotate360 1.5s linear;
+        }
+
+        .help-button:not(:hover) {
+            animation: unrotate360 1.5s linear;
+        }
+
+        .help-button.clicked {
+            animation: rotate360 1.5s linear;
+            pointer-events: none;
+        }
+
+        .help-button.closing {
+            animation: unrotate360 1.5s linear;
+            pointer-events: none;
+        }
+
+        @keyframes rotate360 {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(-360deg);
+            }
+        }
+
+        @keyframes unrotate360 {
+            from {
+                transform: rotate(-360deg);
+            }
+            to {
+                transform: rotate(0deg);
+            }
+        }        
+
+
+        #gameOver {
+            display: none;
+        }
+
+        /* Style du modal */
+        .modal {
+            display: none; /* Masqué par défaut */
+            position: fixed; /* Reste en place */
+            z-index: 1; /* Au-dessus des autres éléments */
+            left: 0;
+            top: 0;
+            width: 100%; /* Largeur complète */
+            height: 100%; /* Hauteur complète */
+            overflow: auto; /* Ajoute un défilement si nécessaire */
+            background-color: rgb(0,0,0); /* Couleur de fond noir */
+            background-color: rgba(0,0,0,0.4); /* Fond noir avec transparence */
+        }
+
+        /* Contenu du modal */
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% du haut et centré */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Largeur de 80% */
+        }
+
+        /* Bouton de fermeture */
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Styles pour le header en dégradé */
+        .gradient-header {
+            position: relative; /* Nécessaire pour le positionnement du pseudo-élément */
+            background: linear-gradient(to right, #800000, #4B0000, #660000, #8B0000, #000080, #000033, #002147, #1B0030);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; /* Pour le texte */
+            color: transparent; /* Valeur de secours */
+        }
+
+        .gradient-title {
+            background: linear-gradient(to right, #4B0000, #800000, #A00000, #E60000, #FF0000);
+            background-clip: text; /* Propriété standard */
+            -webkit-background-clip: text; /* Préfixe pour les navigateurs basés sur WebKit */
+            -webkit-text-fill-color: transparent; /* Préfixe pour les navigateurs basés sur WebKit */
+            color: transparent; /* Valeur de secours pour les navigateurs qui ne supportent pas background-clip */
+        }
+    </style>
+</head>
+<body>
+    <div id="adminPanel">
+        <button class="victory-button murderer-button" onclick="checkVictory('Meurtriers')">Victoire des meurtriers</button>
+        <button class="victory-button innocent-button" onclick="checkVictory('Innocents')">Victoire des innocents</button>
+        <button class="victory-button help-button" onclick="pop()">Règles</button>
+        <button class="victory-button reset-button" onclick="reset()">Recharger le jeu</button>
+        <div id="warningMessage" class="warning-message">
+            Attention, méfies-toi, tout le monde n'est pas mort :/
+        </div>
+    </div>
+
+    <div id="rulesModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+
+            <h2 class="gradient-header">Règles du jeu Murder Mystery</h2>
+            <p>
+                Bienvenue dans Murder Mystery ! Voici comment le jeu fonctionne :
+            </p>
+
+            <h3 class="gradient-header"><u>Objectif du jeu </u></h3>
+            <p>
+                L'objectif est de découvrir qui est le(s) meurtrier(s) parmi les joueurs. Les joueurs peuvent avoir différents rôles (comme shérif, médecin, caméraman, couple), chacun avec ses propres capacités et objectifs. Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou lorsque le temps est écoulé.
+            </p>
+
+            <h3 class="gradient-header"><u>Règles de base </u></h3>
+            <ul>
+                <li>Chaque joueur reçoit un rôle secret au début du jeu.</li>
+                <li>Les joueurs doivent interagir, poser des questions et rassembler des indices.</li>
+                <li>Les joueurs peuvent "se mettre mort" pour simuler leur mort et créer des mystères.</li>
+                <li>Les joueurs peuvent vérifier les codes des morts pour confirmer les décès.</li>
+                <li>Le jeu se termine lorsque le meurtrier ou les innoncents sont morts ou que le temps est écoulé.</li>
+                <li>Lorsque le temps est écoulé, le gagnant est désigné de manière aléatoire</li>
+                <li>Pour terminer la partie, veuillez bien vérifier si les codes de décès du l'équipe ennemies sont rentrés et allez à l'ordinateur pour valider la victoire d'un camp</li> 
+            </ul>
+
+            <h3 class="gradient-header"><u>Interdictions et obligations</u></h3>
+                <li><b><font color="red">Interdiction</font></b> d'utiliser vos vrais noms et prénoms (pour Léo par exemple, il peut utiliser Diego ou pour Axel le nom de son daron <i>(ah bah nan il n'en a pas 🙃)</i>)</li>
+                <li><b><font color="red">Interdiction</font></b> de rester par groupe de plus de 3 personnes</li>
+                <li><b><font color="red">Interdiction</font></b> de rester plus de 15 secondes au même endroit</li> 
+                <li><b><font color="red">Interdiction</font></b> de bouger une fois mis "prêt".</li>    
+                <li><b><font color="red">Interdiction</font></b> de se mettre à côté d'un joueur avant de lancer une partie.</li>
+                <li><b><font color="red">Interdiction</font></b> de partager son rôle durant la partie.</li>
+                <li><b><font color="red">Interdiction</font></b> de se parler par message ailleurs que dans le chat du jeu. (pour le couple)</li>
+                <li><b><font color="red">Interdiction</font></b> de se mettre dans le même groupe pour les personnes possédant les 2 armes (shérif + personnes qui a trouvé la seconde arme)</li>
+                <li><b><font color="red">Interdiction</font></b> de dévoiler où se trouve la deuxième arme et d'utiliser l'arme durant la prochaine partie(personne qui l'a caché) </li>
+                <li><b><font color="red">Interdiction</font></b> de prendre le téléphone d'une autre personne (sauf si elle est morte et pour rentrer le code)</li>
+                <li><b><font color="red">Interdiction</font></b> de former des alliances (sauf pour le couple)</li>
+                <li><b><font color="red">Interdiction</font></b> de faire semblant de rentrer le code (si le joueur mort n'a pas encore été mit dans la liste et que le joueur entrant le code est un meurtrier)</li>
+                <li><b><font color="red">Interdiction</font></b> de parler de la mort d'un joueur (sauf si son code a été scanné)</li>
+                <li><b><font color="red">Interdiction</font></b> de demander le pseudo d'une personne</li>
+                <li><b><font color="red">Interdiction</font></b> d'interagir lorsque le popup pour refaire vivre le caméraman s'affiche (pour la personne morte, un autre joueur peut interagir sur le téléphone de la personne vivante)</li> 
+                <li><b><font color="blue">Obligation</font></b> de garder son téléphone allumé en étant mort pour pouvoir rentrer les codes de mort </li>
+                <li><b><font color="blue">Obligation</font></b> de rester allongé par terre quand on est mort et de ne pas bouger ni parler par la suite</li>
+                <li><b><font color="blue">Obligation</font></b> de ne pas parler à une personne morte</li>
+                
+
+            <h3 class="gradient-header"><u>Comment jouer </u></h3>
+            <p>
+                1. Entrez votre pseudo et rejoignez le jeu.
+                <br>
+                2. Dispersez-vous dans la maison et mettez vous prêts à jouer.
+                <br>
+                3. Attendez que tous les joueurs soient prêts.
+                <br>
+                4. Suivez les instructions à l'écran et interagissez avec les autres joueurs.
+                <br>
+                5. Essayez de découvrir qui est le(s) meurtrier(s) ou tuer tout les innoncents sans vous faire remarquer avant que le temps ne soit écoulé.  
+            </p>
+            <p>
+                Amusez-vous bien et bonne chance !
+            </p>
+
+        </div>
+    </div>
+
+    <div id="gameOver">
+        <h2>Fin du jeu !</h2>
+        <p id="gameOverMessage"></p>
+        <button onclick="restartGame()">Rejouer</button>
+    </div>
+
+    <script>
+        const socket = io();
+        const modal = document.getElementById("rulesModal");
+        const closeButton = document.getElementsByClassName("close-button")[0];
+        function checkVictory(winner) {
+            $.ajax({
+                url: '/check_victory',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ winner: winner }),
+                success: function(response) {
+                    if (response.valid) {
+                        $('#adminPanel').hide();
+                        $('#gameOver').show();
+                        $('#gameOverMessage').text(response.message);
+                        socket.emit('end_game', { winner: winner });
+                    } else {
+                        $('#warningMessage').show();
+                        setTimeout(() => $('#warningMessage').hide(), 3000);
+                    }
+                }
+            });
+        }
+
+        function restartGame() {
+            $.ajax({
+                url: '/reset_game',
+                method: 'POST',
+                success: function() {
+                    socket.emit('restart_game');
+                    window.close();
+                }
+            });
+        }
+    
+        function pop() {
+            modal.style.display = "block";
+        }
+
+        closeButton.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        // Lorsque l'utilisateur clique n'importe où en dehors du modal, fermez-le
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        function reset() {
+            if (confirm("Êtes-vous sûr de vouloir réinitialiser la partie ?")) {
+                restartGame();
+            }
+        }
+    </script>
+</body>
+</html>
